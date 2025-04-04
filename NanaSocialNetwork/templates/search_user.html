@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search User - Nana Social</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 500px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        form {
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            width: 80%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #4267b2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #365899;
+        }
+
+        .user-card {
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            text-align: left;
+        }
+
+        .user-info {
+            flex: 1;
+            margin-right: 15px;
+        }
+
+        .user-card h3 {
+            margin: 0 0 5px 0;
+        }
+
+        .user-card p {
+            margin: 0;
+            color: #555;
+        }
+
+        .avatar {
+            width: 100px; /* Размер аватара */
+            height: 100px;
+            border-radius: 50%; /* Делает аватар круглым */
+            object-fit: cover; /* Сохраняет пропорции изображения */
+            margin-left: 15px; /* Отступ слева от текста */
+        }
+
+        .home-button {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Search User</h1>
+        <form action="/search_user" method="POST">
+            <input type="text" name="username" placeholder="Enter username" required>
+            <button type="submit">Search</button>
+        </form>
+
+        {% if user %}
+        <div class="user-card">
+            <div class="user-info">
+                <h3>{{ user[1] }}</h3>
+                <p>{{ user[2] or "No description available" }}</p>
+                <p><strong>Relationship Status:</strong> {{ user[3] or "No status available" }}</p>
+
+                {% if friendship_status %}
+                    {% if friendship_status[0] == 'pending' %}
+                    <p>Friend request pending</p>
+                    {% elif friendship_status[0] == 'accepted' %}
+                    <p>You are friends</p>
+                    {% else %}
+                    <p>Friend request rejected</p>
+                    {% endif %}
+                {% else %}
+                <a href="{{ url_for('add_friend', friend_id=user[0]) }}">
+                    <button>Add Friend</button>
+                </a>
+                {% endif %}
+            </div>
+            {% if user[4] %} <!-- Предполагается, что avatar находится в user[4] -->
+                <img src="{{ url_for('static', filename='avatars/' + user[4]) }}" alt="Avatar" class="avatar">
+            {% else %}
+                <div class="avatar" style="background-color: #ccc;">No avatar</div> <!-- Плейсхолдер, если аватара нет -->
+            {% endif %}
+        </div>
+        {% elif error %}
+        <p>{{ error }}</p>
+        {% endif %}
+
+        <!-- Кнопка "Вернуться домой" -->
+        <div class="home-button">
+            <a href="{{ url_for('home') }}">
+                <button>Back to Home</button>
+            </a>
+        </div>
+    </div>
+</body>
+</html>

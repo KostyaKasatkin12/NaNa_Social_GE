@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with {{ friend_username }}</title>
+    <style>
+        /* Global Styles */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            height: 100vh;
+            flex-direction: column;
+        }
+        h1 {
+            color: #4267b2;
+            margin-top: 20px;
+        }
+        .chat-container {
+            background-color: white;
+            padding: 20px;
+            width: 80%;
+            max-width: 600px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-top: 30px;
+            margin-bottom: 20px;
+        }
+        .chat-message {
+            border-bottom: 1px solid #ddd;
+            padding: 10px 0;
+        }
+        .chat-message strong {
+            color: #4267b2;
+        }
+        .chat-message em {
+            color: #777;
+            font-size: 12px;
+        }
+        textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #3b5998;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #365899;
+        }
+        a {
+            color: #4267b2;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 14px;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Chat with {{ friend_username }}</h1>
+
+    <div class="chat-container">
+        <ul>
+            {% for content, created_at, sender in chat %}
+                <li class="chat-message">
+                    <strong>{{ sender }}</strong>: {{ content }} <em>({{ created_at }})</em>
+                </li>
+            {% endfor %}
+        </ul>
+
+        <form method="post">
+            <textarea name="content" placeholder="Type your message..." required></textarea>
+            <button type="submit">Send</button>
+        </form>
+    </div>
+
+    <footer>
+        <a href="/">Back to Home</a>
+    </footer>
+
+</body>
+</html>

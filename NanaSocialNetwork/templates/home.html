@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome, {{ username }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* Global Styles */
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* Light Theme */
+        body.light-theme {
+            background-color: #f7f9fc;
+            color: #333;
+        }
+        body.light-theme header {
+            background-color: #007bff;
+            color: white;
+        }
+        body.light-theme button {
+            background-color: #007bff;
+            color: white;
+        }
+        body.light-theme button:hover {
+            background-color: #0056b3;
+        }
+        body.light-theme .container {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        body.light-theme .post,
+        body.light-theme .friend-item,
+        body.light-theme .friend-request,
+        body.light-theme .chats li {
+            background-color: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 15px 0;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        /* Dark Theme */
+        body.dark-theme {
+            background-color: #181818;
+            color: #e0e0e0;
+        }
+        body.dark-theme header {
+            background-color: #1f1f1f;
+            color: #e0e0e0;
+        }
+        body.dark-theme button {
+            background-color: #007bff;
+            color: #ffffff;
+        }
+        body.dark-theme button:hover {
+            background-color: #0056b3;
+        }
+        body.dark-theme .container {
+            background-color: #242424;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+        body.dark-theme .post,
+        body.dark-theme .friend-item,
+        body.dark-theme .friend-request,
+        body.dark-theme .chats li {
+            background-color: #2c2c2c;
+            border: 1px solid #444;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 15px 0;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        header {
+            padding: 15px 20px;
+            text-align: center;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        header h1 {
+            margin: 0;
+            font-size: 28px;
+        }
+        .container {
+            width: 90%;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .post-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .edit-profile-btn {
+            margin-left: auto;
+        }
+        footer {
+            padding: 20px;
+            text-align: center;
+            font-size: 14px;
+            border-top: 2px solid #e0e0e0;
+        }
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 15px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        .theme-toggle:hover {
+            background-color: #0056b3;
+        }
+        textarea, input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+        textarea:focus, input[type="text"]:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .post-image {
+            max-width: 100%;
+            max-height: 400px;
+            margin-top: 10px;
+            border-radius: 6px;
+        }
+        .create-post-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .file-input {
+            padding: 5px 0;
+        }
+        .friend-list, .friend-requests, .chats {
+            list-style: none;
+            padding: 0;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .hidden-posts {
+            display: none;
+        }
+        .toggle-posts {
+            text-align: center;
+            cursor: pointer;
+            padding: 12px;
+            background-color: #f0f0f0;
+            border-radius: 6px;
+            margin: 10px 0;
+            transition: background-color 0.3s;
+        }
+        .toggle-posts:hover {
+            background-color: #e0e0e0;
+        }
+        body.dark-theme .toggle-posts {
+            background-color: #333;
+        }
+        body.dark-theme .toggle-posts:hover {
+            background-color: #444;
+        }
+    </style>
+</head>
+<body class="light-theme">
+    <header>
+        <h1>Welcome, {{ username }}</h1>
+    </header>
+
+    <button class="theme-toggle" id="theme-toggle">Switch to Dark Theme</button>
+
+    <div class="container">
+        <div class="post-header">
+            <h2>Create a Post</h2>
+            <a href="{{ url_for('profile') }}" class="edit-profile-btn">
+                <button>Edit Profile</button>
+            </a>
+        </div>
+        <form method="POST" action="{{ url_for('create_post') }}" enctype="multipart/form-data" class="create-post-form">
+            <textarea name="content" placeholder="What's on your mind?" required></textarea>
+            <input type="file" name="image" accept="image/*" class="file-input">
+            <button type="submit">Post</button>
+        </form>
+    </div>
+
+    <div class="container">
+        <h2>Posts</h2>
+        <div id="posts">
+            {% for post in posts[:5] %}
+                <div class="post">
+                    <p><strong>{{ post[2] }}:</strong> {{ post[0] }}</p>
+                    {% if post[3] %}
+                        <img src="{{ url_for('static', filename='avatars/' + post[3]) }}"
+                             alt="Post image"
+                             class="post-image">
+                    {% endif %}
+                    <p><em>{{ post[1] }}</em></p>
+                </div>
+            {% endfor %}
+            {% if posts|length > 5 %}
+                <div class="hidden-posts" id="hidden-posts">
+                    {% for post in posts[5:] %}
+                        <div class="post">
+                            <p><strong>{{ post[2] }}:</strong> {{ post[0] }}</p>
+                            {% if post[3] %}
+                                <img src="{{ url_for('static', filename='avatars/' + post[3]) }}"
+                                     alt="Post image"
+                                     class="post-image">
+                            {% endif %}
+                            <p><em>{{ post[1] }}</em></p>
+                        </div>
+                    {% endfor %}
+                </div>
+                <div class="toggle-posts" id="toggle-posts">▼ Show more posts</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Your Friends</h2>
+        {% if friends %}
+            <ul class="friend-list">
+                {% for friend in friends %}
+                    <li class="friend-item">
+                        {{ friend[0] }}
+                        <a href="{{ url_for('create_chat', friend_id=friend[1]) }}">Chat with {{ friend[0] }}</a>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>You have no friends yet.</p>
+        {% endif %}
+    </div>
+
+    <div class="container">
+        <h2>Friend Requests</h2>
+        <ul class="friend-requests">
+            {% for request in friend_requests %}
+                <li class="friend-request">
+                    {{ request[1] }}
+                    <form action="{{ url_for('accept_friend', friend_id=request[0]) }}" method="POST" style="display:inline;">
+                        <button type="submit">Accept</button>
+                    </form>
+                    <form action="{{ url_for('reject_friend', friend_id=request[0]) }}" method="POST" style="display:inline;">
+                        <button type="submit">Reject</button>
+                    </form>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="container">
+        <h2>Notifications</h2>
+        <ul>
+            {% for notification in notifications %}
+                <li>{{ notification[0] }} ({{ notification[1] }})</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="container">
+        <h2>Chats</h2>
+        <ul class="chats">
+            {% for chat in chats %}
+                <li><a href="{{ url_for('chat', chat_id=chat[0]) }}">{{ chat[1] }}</a></li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="container">
+        <h2>Search Users</h2>
+        <form method="POST" action="{{ url_for('search_user') }}">
+            <input type="text" name="username" placeholder="Enter username to search" required>
+            <button type="submit">Search</button>
+        </form>
+    </div>
+
+    <footer>
+        <a href="{{ url_for('logout') }}">Logout</a>
+        <p>© 2025 Nana Social Network. All rights reserved.</p>
+    </footer>
+
+    <script>
+        const themeToggleButton = document.getElementById('theme-toggle');
+        const body = document.body;
+
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            body.className = savedTheme;
+            themeToggleButton.textContent = savedTheme === 'light-theme'
+                ? 'Switch to Dark Theme'
+                : 'Switch to Light Theme';
+        }
+
+        themeToggleButton.addEventListener('click', () => {
+            const currentTheme = body.className;
+            const newTheme = currentTheme === 'light-theme' ? 'dark-theme' : 'light-theme';
+
+            body.className = newTheme;
+            themeToggleButton.textContent = newTheme === 'light-theme'
+                ? 'Switch to Dark Theme'
+                : 'Switch to Light Theme';
+
+            localStorage.setItem('theme', newTheme);
+        });
+
+        // Toggle posts visibility
+        const togglePosts = document.getElementById('toggle-posts');
+        const hiddenPosts = document.getElementById('hidden-posts');
+        if (togglePosts) {
+            togglePosts.addEventListener('click', () => {
+                if (hiddenPosts.style.display === 'none' || hiddenPosts.style.display === '') {
+                    hiddenPosts.style.display = 'block';
+                    togglePosts.textContent = '▲ Show fewer posts';
+                } else {
+                    hiddenPosts.style.display = 'none';
+                    togglePosts.textContent = '▼ Show more posts';
+                }
+            });
+        }
+    </script>
+</body>
+</html>
