@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Friend Requests</title>
+</head>
+<body>
+    <h1>Friend Requests</h1>
+
+    {% if requests %}
+        <ul>
+            {% for request in requests %}
+                <li>
+                    {{ request[1] }}
+                    <form action="/accept_friend/{{ request[0] }}" method="POST" style="display:inline;">
+                        <button type="submit">Accept</button>
+                    </form>
+                    <form action="/reject_friend/{{ request[0] }}" method="POST" style="display:inline;">
+                        <button type="submit">Reject</button>
+                    </form>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No friend requests</p>
+    {% endif %}
+
+    <a href="/">Back to Home</a>
+</body>
+</html>

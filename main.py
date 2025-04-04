@@ -1,0 +1,479 @@
+from flask import Flask, render_template, redirect, url_for, request, session, flash
+import sqlite3
+import os
+from werkzeug.utils import secure_filename
+
+app = Flask(__name__)
+app.secret_key = 'your_secret_key'  # Обновите этот ключ для безопасности
+
+UPLOAD_FOLDER = 'static/avatars'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+def init_db():
+    conn = sqlite3.connect('nana.db')
+    cursor = conn.cursor()
+
+    cursor.execute('''CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL,
+        password TEXT NOT NULL,
+        description TEXT,
+        relationship_status TEXT DEFAULT 'не интересуюсь',
+        avatar TEXT
+    )''')
+
+    cursor.execute('''CREATE TABLE IF NOT EXISTS posts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        content TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        image TEXT,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    )''')
+
+    cursor.execute('''CREATE TABLE IF NOT EXISTS friends (
+        user_id INTEGER NOT NULL,
+        friend_id INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        PRIMARY KEY (user_id, friend_id),
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (friend_id) REFERENCES users(id)
+    )''')
+
+    cursor.execute('''CREATE TABLE IF NOT EXISTS chats (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user1_id INTEGER NOT NULL,
+        user2_id INTEGER NOT NULL,
+        FOREIGN KEY (user1_id) REFERENCES users(id),
+        FOREIGN KEY (user2_id) REFERENCES users(id)
+    )''')
+
+    cursor.execute('''CREATE TABLE IF NOT EXISTS chat_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_id INTEGER NOT NULL,
+        sender_id INTEGER NOT NULL,
+        content TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (chat_id) REFERENCES chats(id),
+        FOREIGN KEY (sender_id) REFERENCES users(id)
+    )''')
+
+    cursor.execute('''CREATE TABLE IF NOT EXISTS notifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        content TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    )''')
+
+    conn.commit()
+    conn.close()
+
+
+def send_notification(user_id, content):
+    conn = sqlite3.connect('nana.db')
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO notifications (user_id, content) VALUES (?, ?)", (user_id, content))
+    conn.commit()
+    conn.close()
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+
+        conn = sqlite3.connect('nana.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, password))
+        user = cursor.fetchone()
+
+        if user:
+            session['user_id'] = user[0]
+            conn.close()
+            return redirect(url_for('home'))
+        else:
+            conn.close()
+            flash('Invalid username or password', 'error')
+            return redirect(url_for('register'))
+
+    return render_template('login.html')
+
+@app.route('/')
+def home():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    user_id = session['user_id']
+    conn = sqlite3.connect('nana.db')
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT username FROM users WHERE id = ?", (user_id,))
+    user = cursor.fetchone()
+
+    # Получаем все посты (ограничение перенесено в шаблон)
+    cursor.execute("""
+        SELECT posts.content, posts.created_at, users.username, posts.image
+        FROM posts 
+        JOIN users ON posts.user_id = users.id 
+        ORDER BY posts.created_at DESC
+    """)
+    posts = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT users.username, users.id FROM friends 
+        JOIN users ON friends.friend_id = users.id
+        WHERE friends.user_id = ? AND friends.status = 'accepted'
+    """, (user_id,))
+    friends = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT users.id, users.username FROM friends 
+        JOIN users ON friends.user_id = users.id
+        WHERE friends.friend_id = ? AND friends.status = 'pending'
+    """, (user_id,))
+    friend_requests = cursor.fetchall()
+
+    cursor.execute("SELECT content, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC", (user_id,))
+    notifications = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT chats.id, users.username FROM chats 
+        JOIN users ON (chats.user1_id = users.id OR chats.user2_id = users.id)
+        WHERE (chats.user1_id = ? OR chats.user2_id = ?) AND users.id != ?
+    """, (user_id, user_id, user_id))
+    chats = cursor.fetchall()
+
+    conn.close()
+
+    if user:
+        return render_template('home.html', username=user[0], posts=posts, friends=friends,
+                             friend_requests=friend_requests, notifications=notifications, chats=chats)
+    return redirect(url_for('login'))
+
+@app.route('/create_post', methods=['POST'])
+def create_post():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    user_id = session['user_id']
+    content = request.form['content']
+    image = request.files.get('image')
+    image_filename = None
+
+    if image and allowed_file(image.filename):
+        filename = secure_filename(image.filename)
+        image_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        image.save(image_path)
+        image_filename = filename
+
+    conn = sqlite3.connect('nana.db')
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO posts (user_id, content, image) VALUES (?, ?, ?)",
+                  (user_id, content, image_filename))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for('home'))
+
+@app.route('/profile', methods=['GET', 'POST'])
+def profile():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    user_id = session['user_id']
+    conn = sqlite3.connect('nana.db')
+    cursor = conn.cursor()
+
+    if request.method == 'POST':
+        if 'description' in request.form and 'relationship_status' in request.form:
+            description = request.form.get('description')
+            relationship_status = request.form.get('relationship_status')
+            cursor.execute("""
+                UPDATE users
+                SET description = ?, relationship_status = ?
+                WHERE id = ?
+            """, (description, relationship_status, user_id))
+            conn.commit()
+
+        elif 'post_content' in request.form:
+            post_content = request.form['post_content']
+            image = request.files.get('image')
+            image_filename = None
+
+            if image and allowed_file(image.filename):
+                filename = secure_filename(image.filename)
+                image_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                image.save(image_path)
+                image_filename = filename
+
+            cursor.execute("""
+                INSERT INTO posts (user_id, content, image) VALUES (?, ?, ?)
+            """, (user_id, post_content, image_filename))
+            conn.commit()
+
+        elif 'avatar' in request.files:
+            avatar = request.files['avatar']
+            if avatar and allowed_file(avatar.filename):
+                avatar_filename = secure_filename(avatar.filename)
+                avatar_path = os.path.join(app.config['UPLOAD_FOLDER'], avatar_filename)
+                avatar.save(avatar_path)
+                cursor.execute("""
+                    UPDATE users SET avatar = ? WHERE id = ?
+                """, (avatar_filename, user_id))
+                conn.commit()
+
+    cursor.execute("""
+        SELECT username, description, relationship_status, avatar FROM users WHERE id = ?
+    """, (user_id,))
+    user = cursor.fetchone()
+
+    cursor.execute("""
+        SELECT users.username FROM friends
+        JOIN users ON friends.friend_id = users.id
+        WHERE friends.user_id = ? AND friends.status = 'accepted'
+    """, (user_id,))
+    friends = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT content, created_at, image FROM posts 
+        WHERE user_id = ? 
+        ORDER BY created_at DESC
+    """, (user_id,))
+    posts = cursor.fetchall()
+
+    conn.close()
+
+    return render_template('profile.html', user=user, friends=friends, posts=posts)
+
+@app.route('/create_chat/<int:friend_id>')
+def create_chat(friend_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    user_id = session['user_id']
+    conn = sqlite3.connect('nana.db')
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id FROM chats WHERE (user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?)
+    """, (user_id, friend_id, friend_id, user_id))
+    chat = cursor.fetchone()
+
+    if not chat:
+        cursor.execute("""
+            INSERT INTO chats (user1_id, user2_id) VALUES (?, ?)
+        """, (user_id, friend_id))
+        conn.commit()
+
+        cursor.execute("""
+            SELECT id FROM chats WHERE (user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?)
+        """, (user_id, friend_id, friend_id, user_id))
+        chat = cursor.fetchone()
+
+    conn.close()
+
+    return redirect(url_for('chat', chat_id=chat[0]))
+
+@app.route('/chat/<int:chat_id>')
+def chat(chat_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    user_id = session['user_id']
+    conn = sqlite3.connect('nana.db')
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT user1_id, user2_id FROM chats WHERE id = ?
+    """, (chat_id,))
+    chat = cursor.fetchone()
+
+    if chat is None:
+        return "Chat not found", 404
+
+    friend_id = chat[0] if chat[1] == user_id else chat[1]
+
+    cursor.execute("""
+        SELECT users.username, chat_messages.content, chat_messages.created_at 
+        FROM chat_messages
+        JOIN users ON chat_messages.sender_id = users.id
+        WHERE chat_messages.chat_id = ?
+        ORDER BY chat_messages.created_at ASC
+    """, (chat_id,))
+    messages = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT username FROM users WHERE id = ?
+    """, (friend_id,))
+    friend = cursor.fetchone()
+
+    conn.close()
+
+    return render_template('chat.html', chat_id=chat_id, friend=friend[0], messages=messages)
+
+@app.route('/send_message/<int:chat_id>', methods=['POST'])
+def send_message(chat_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    user_id = session['user_id']
+    message = request.form['message']
+
+    conn = sqlite3.connect('nana.db')
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO chat_messages (chat_id, sender_id, content) VALUES (?, ?, ?)
+    """, (chat_id, user_id, message))
+    conn.commit()
+
+    conn.close()
+
+    return redirect(url_for('chat', chat_id=chat_id))
+
+@app.route('/add_friend/<int:friend_id>')
+def add_friend(friend_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    user_id = session['user_id']
+    conn = sqlite3.connect('nana.db')
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM friends WHERE user_id = ? AND friend_id = ?", (user_id, friend_id))
+    existing_friend = cursor.fetchone()
+
+    if not existing_friend:
+        cursor.execute("INSERT INTO friends (user_id, friend_id, status) VALUES (?, ?, 'pending')", (user_id, friend_id))
+        conn.commit()
+
+    conn.close()
+    return redirect(url_for('home'))
+
+@app.route('/accept_friend/<int:friend_id>', methods=['POST'])
+def accept_friend(friend_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    user_id = session['user_id']
+    conn = sqlite3.connect('nana.db')
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT * FROM friends
+        WHERE user_id = ? AND friend_id = ? AND status = 'pending'
+    """, (friend_id, user_id))
+    friend_request = cursor.fetchone()
+
+    if friend_request:
+        cursor.execute("""
+            UPDATE friends
+            SET status = 'accepted'
+            WHERE user_id = ? AND friend_id = ?
+        """, (friend_id, user_id))
+
+        cursor.execute("""
+            INSERT OR REPLACE INTO friends (user_id, friend_id, status)
+            VALUES (?, ?, 'accepted')
+        """, (user_id, friend_id))
+
+        conn.commit()
+
+    conn.close()
+    return redirect(url_for('home'))
+
+@app.route('/reject_friend/<int:friend_id>', methods=['POST'])
+def reject_friend(friend_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    user_id = session['user_id']
+    conn = sqlite3.connect('nana.db')
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM friends WHERE user_id = ? AND friend_id = ?", (friend_id, user_id))
+    conn.commit()
+
+    conn.close()
+    return redirect(url_for('home'))
+
+@app.route('/logout')
+def logout():
+    session.pop('user_id', None)
+    return redirect(url_for('login'))
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        confirm_password = request.form['confirm_password']
+        description = request.form['description']
+
+        if password != confirm_password:
+            return 'Passwords do not match, please try again.'
+
+        conn = sqlite3.connect('nana.db')
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+        existing_user = cursor.fetchone()
+
+        if existing_user:
+            conn.close()
+            return 'Username already exists, please choose another one.'
+
+        cursor.execute(
+            "INSERT INTO users (username, password, description) VALUES (?, ?, ?)",
+            (username, password, description),
+        )
+        conn.commit()
+        conn.close()
+
+        return redirect(url_for('login'))
+
+    return render_template('register.html')
+
+@app.route('/search_user', methods=['GET', 'POST'])
+def search_user():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    user_id = session['user_id']
+
+    if request.method == 'POST':
+        username = request.form['username']
+        conn = sqlite3.connect('nana.db')
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT id, username, description, relationship_status, avatar FROM users WHERE username = ?", (username,))
+        user = cursor.fetchone()
+
+        if user:
+            cursor.execute("""
+                SELECT status FROM friends WHERE user_id = ? AND friend_id = ?
+            """, (user_id, user[0]))
+            friendship_status = cursor.fetchone()
+        else:
+            friendship_status = None
+
+        conn.close()
+
+        if user:
+            return render_template('search_user.html', user=user, friendship_status=friendship_status)
+        else:
+            return render_template('search_user.html', error="User not found")
+
+    return render_template('search_user.html')
+
+if __name__ == '__main__':
+    if not os.path.exists(UPLOAD_FOLDER):
+        os.makedirs(UPLOAD_FOLDER)
+
+    init_db()
+    app.run(debug=True)
