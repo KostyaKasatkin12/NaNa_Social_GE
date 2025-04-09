@@ -15,7 +15,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 def init_db():
     conn = sqlite3.connect('nana.db')
     cursor = conn.cursor()
-    # Существующие таблицы остаются без изменений
+    # Существующие таблицы
     cursor.execute('''CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT NOT NULL,
@@ -53,12 +53,14 @@ def init_db():
         FOREIGN KEY (user1_id) REFERENCES users(id),
         FOREIGN KEY (user2_id) REFERENCES users(id)
     )''')
+    # Обновляем таблицу chat_messages, добавляем поле is_read
     cursor.execute('''CREATE TABLE IF NOT EXISTS chat_messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         chat_id INTEGER NOT NULL,
         sender_id INTEGER NOT NULL,
         content TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        is_read INTEGER DEFAULT 0,  -- 0: не прочитано, 1: прочитано
         FOREIGN KEY (chat_id) REFERENCES chats(id),
         FOREIGN KEY (sender_id) REFERENCES users(id)
     )''')
@@ -69,16 +71,21 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id)
     )''')
-    # Новая таблица для лайков и дизлайков
     cursor.execute('''CREATE TABLE IF NOT EXISTS post_reactions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         post_id INTEGER NOT NULL,
         user_id INTEGER NOT NULL,
-        reaction TEXT NOT NULL,  -- 'like' или 'dislike'
-        UNIQUE(post_id, user_id),  -- Один пользователь — одна реакция на пост
+        reaction TEXT NOT NULL,
+        UNIQUE(post_id, user_id),
         FOREIGN KEY (post_id) REFERENCES posts(id),
         FOREIGN KEY (user_id) REFERENCES users(id)
     )''')
+    # Проверяем, есть ли поле is_read в chat_messages, если нет — добавляем
+    cursor.execute("PRAGMA table_info(chat_messages)")
+    columns = [col[1] for col in cursor.fetchall()]
+    if 'is_read' not in columns:
+        cursor.execute("ALTER TABLE chat_messages ADD COLUMN is_read INTEGER DEFAULT 0")
+        cursor.execute("UPDATE chat_messages SET is_read = 0 WHERE is_read IS NULL")
     conn.commit()
     conn.close()
 
@@ -122,7 +129,7 @@ def home():
     cursor = conn.cursor()
     cursor.execute("SELECT username FROM users WHERE id = ?", (user_id,))
     user = cursor.fetchone()
-    # Обновляем запрос для постов, добавляем подсчет лайков и дизлайков
+    # Посты
     cursor.execute("""
         SELECT posts.id, posts.content, posts.created_at, users.username, posts.image,
                (SELECT COUNT(*) FROM post_reactions WHERE post_id = posts.id AND reaction = 'like') AS likes,
@@ -133,26 +140,56 @@ def home():
         ORDER BY posts.created_at DESC
     """, (user_id,))
     posts = cursor.fetchall()
+    # Друзья
     cursor.execute("""
         SELECT users.username, users.id FROM friends 
         JOIN users ON friends.friend_id = users.id
         WHERE friends.user_id = ? AND friends.status = 'accepted'
     """, (user_id,))
     friends = cursor.fetchall()
+    # Запросы на дружбу
     cursor.execute("""
         SELECT users.id, users.username FROM friends 
         JOIN users ON friends.user_id = users.id
         WHERE friends.friend_id = ? AND friends.status = 'pending'
     """, (user_id,))
     friend_requests = cursor.fetchall()
-    cursor.execute("SELECT content, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC", (user_id,))
-    notifications = cursor.fetchall()
+    # Чаты с количеством непрочитанных сообщений
     cursor.execute("""
-        SELECT chats.id, users.username FROM chats 
+        SELECT chats.id, users.username,
+               (SELECT COUNT(*) FROM chat_messages 
+                WHERE chat_messages.chat_id = chats.id 
+                AND chat_messages.sender_id != ? 
+                AND chat_messages.is_read = 0) AS unread_count
+        FROM chats 
         JOIN users ON (chats.user1_id = users.id OR chats.user2_id = users.id)
         WHERE (chats.user1_id = ? OR chats.user2_id = ?) AND users.id != ?
-    """, (user_id, user_id, user_id))
+    """, (user_id, user_id, user_id, user_id))
     chats = cursor.fetchall()
+    # Уведомления о непрочитанных сообщениях
+    cursor.execute("""
+        SELECT users.username, 
+               (SELECT COUNT(*) FROM chat_messages 
+                WHERE chat_messages.chat_id = chats.id 
+                AND chat_messages.sender_id != ? 
+                AND chat_messages.is_read = 0) AS unread_count
+        FROM chats 
+        JOIN users ON (chats.user1_id = users.id OR chats.user2_id = users.id)
+        WHERE (chats.user1_id = ? OR chats.user2_id = ?) 
+        AND users.id != ?
+        AND (SELECT COUNT(*) FROM chat_messages 
+             WHERE chat_messages.chat_id = chats.id 
+             AND chat_messages.sender_id != ? 
+             AND chat_messages.is_read = 0) > 0
+    """, (user_id, user_id, user_id, user_id, user_id))
+    unread_notifications = cursor.fetchall()
+    # Формируем уведомления в формате {имя пользователя}: {кол-во непрочитанных}
+    notifications = []
+    for username, unread_count in unread_notifications:
+        notifications.append((f"{username}: {unread_count}", None))  # created_at не нужен, оставляем None
+    # Добавляем остальные уведомления из таблицы notifications
+    cursor.execute("SELECT content, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC", (user_id,))
+    notifications.extend(cursor.fetchall())
     conn.close()
     if user:
         return render_template('home.html', username=user[0], posts=posts, friends=friends,
@@ -330,6 +367,44 @@ def chat(chat_id):
     if chat is None:
         return "Chat not found", 404
     friend_id = chat[0] if chat[1] == user_id else chat[1]
+    # Отмечаем все сообщения от собеседника как прочитанные
+    cursor.execute("""
+        UPDATE chat_messages 
+        SET is_read = 1 
+        WHERE chat_id = ? AND sender_id = ? AND is_read = 0
+    """, (chat_id, friend_id))
+    conn.commit()
+    # Получаем обновлённое количество непрочитанных сообщений для всех чатов
+    cursor.execute("""
+        SELECT chats.id, users.username,
+               (SELECT COUNT(*) FROM chat_messages 
+                WHERE chat_messages.chat_id = chats.id 
+                AND chat_messages.sender_id != ? 
+                AND chat_messages.is_read = 0) AS unread_count
+        FROM chats 
+        JOIN users ON (chats.user1_id = users.id OR chats.user2_id = users.id)
+        WHERE (chats.user1_id = ? OR chats.user2_id = ?) AND users.id != ?
+    """, (user_id, user_id, user_id, user_id))
+    chats = cursor.fetchall()
+    # Получаем обновлённые уведомления о непрочитанных сообщениях
+    cursor.execute("""
+        SELECT users.username, 
+               (SELECT COUNT(*) FROM chat_messages 
+                WHERE chat_messages.chat_id = chats.id 
+                AND chat_messages.sender_id != ? 
+                AND chat_messages.is_read = 0) AS unread_count
+        FROM chats 
+        JOIN users ON (chats.user1_id = users.id OR chats.user2_id = users.id)
+        WHERE (chats.user1_id = ? OR chats.user2_id = ?) 
+        AND users.id != ?
+        AND (SELECT COUNT(*) FROM chat_messages 
+             WHERE chat_messages.chat_id = chats.id 
+             AND chat_messages.sender_id != ? 
+             AND chat_messages.is_read = 0) > 0
+    """, (user_id, user_id, user_id, user_id, user_id))
+    unread_notifications = cursor.fetchall()
+    notifications = [(f"{username}: {unread_count}", None) for username, unread_count in unread_notifications]
+    # Получаем сообщения чата
     cursor.execute("""
         SELECT users.username, chat_messages.content, chat_messages.created_at 
         FROM chat_messages
@@ -341,6 +416,12 @@ def chat(chat_id):
     cursor.execute("SELECT username FROM users WHERE id = ?", (friend_id,))
     friend = cursor.fetchone()
     conn.close()
+    # Отправляем событие через SocketIO для обновления Chats и Notifications
+    socketio.emit('update_unread', {
+        'user_id': user_id,
+        'chats': [{'chat_id': chat[0], 'username': chat[1], 'unread_count': chat[2]} for chat in chats],
+        'notifications': notifications
+    }, room=str(user_id))
     return render_template('chat.html', chat_id=chat_id, friend=friend[0], messages=messages, user_id=user_id)
 
 @app.route('/send_message/<int:chat_id>', methods=['POST'])
