@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, request, session, flash
+from flask import Flask, render_template, redirect, url_for, request, session, flash, jsonify
 from flask_socketio import SocketIO, emit, join_room
 import sqlite3
 import os
@@ -6,7 +6,7 @@ from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
-socketio = SocketIO(app, cors_allowed_origins="*")  # Разрешаем CORS для Replit
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 UPLOAD_FOLDER = 'static/avatars'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
@@ -15,7 +15,6 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 def init_db():
     conn = sqlite3.connect('nana.db')
     cursor = conn.cursor()
-    # Существующие таблицы
     cursor.execute('''CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT NOT NULL,
@@ -53,14 +52,13 @@ def init_db():
         FOREIGN KEY (user1_id) REFERENCES users(id),
         FOREIGN KEY (user2_id) REFERENCES users(id)
     )''')
-    # Обновляем таблицу chat_messages, добавляем поле is_read
     cursor.execute('''CREATE TABLE IF NOT EXISTS chat_messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         chat_id INTEGER NOT NULL,
         sender_id INTEGER NOT NULL,
         content TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        is_read INTEGER DEFAULT 0,  -- 0: не прочитано, 1: прочитано
+        is_read INTEGER DEFAULT 0,
         FOREIGN KEY (chat_id) REFERENCES chats(id),
         FOREIGN KEY (sender_id) REFERENCES users(id)
     )''')
@@ -80,7 +78,6 @@ def init_db():
         FOREIGN KEY (post_id) REFERENCES posts(id),
         FOREIGN KEY (user_id) REFERENCES users(id)
     )''')
-    # Проверяем, есть ли поле is_read в chat_messages, если нет — добавляем
     cursor.execute("PRAGMA table_info(chat_messages)")
     columns = [col[1] for col in cursor.fetchall()]
     if 'is_read' not in columns:
@@ -100,6 +97,39 @@ def handle_connect():
 def on_join(room):
     join_room(str(room))
     print(f'Клиент присоединился к комнате: {room}')
+
+def send_notifications(user_id):
+    conn = sqlite3.connect('nana.db')
+    cursor = conn.cursor()
+    # Уведомления о непрочитанных сообщениях
+    cursor.execute("""
+        SELECT users.username, 
+               (SELECT COUNT(*) FROM chat_messages 
+                WHERE chat_messages.chat_id = chats.id 
+                AND chat_messages.sender_id != ? 
+                AND chat_messages.is_read = 0) AS unread_count
+        FROM chats 
+        JOIN users ON (chats.user1_id = users.id OR chats.user2_id = users.id)
+        WHERE (chats.user1_id = ? OR chats.user2_id = ?) 
+        AND users.id != ?
+        AND (SELECT COUNT(*) FROM chat_messages 
+             WHERE chat_messages.chat_id = chats.id 
+             AND chat_messages.sender_id != ? 
+             AND chat_messages.is_read = 0) > 0
+    """, (user_id, user_id, user_id, user_id, user_id))
+    unread_notifications = cursor.fetchall()
+    notifications = [(f"{username} sent you {unread_count} message(s)", None) for username, unread_count in unread_notifications]
+    # Уведомления из таблицы notifications
+    cursor.execute("SELECT content, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC", (user_id,))
+    notifications.extend(cursor.fetchall())
+    total_unread = len(notifications)
+    conn.close()
+    print(f"Отправка уведомлений для user_id {user_id}: {notifications}, total_unread: {total_unread}")
+    socketio.emit('update_notifications', {
+        'user_id': user_id,
+        'notifications': notifications,
+        'total_unread': total_unread
+    }, room=str(user_id))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -129,7 +159,6 @@ def home():
     cursor = conn.cursor()
     cursor.execute("SELECT username FROM users WHERE id = ?", (user_id,))
     user = cursor.fetchone()
-    # Посты
     cursor.execute("""
         SELECT posts.id, posts.content, posts.created_at, users.username, posts.image,
                (SELECT COUNT(*) FROM post_reactions WHERE post_id = posts.id AND reaction = 'like') AS likes,
@@ -140,21 +169,18 @@ def home():
         ORDER BY posts.created_at DESC
     """, (user_id,))
     posts = cursor.fetchall()
-    # Друзья
     cursor.execute("""
         SELECT users.username, users.id FROM friends 
         JOIN users ON friends.friend_id = users.id
         WHERE friends.user_id = ? AND friends.status = 'accepted'
     """, (user_id,))
     friends = cursor.fetchall()
-    # Запросы на дружбу
     cursor.execute("""
         SELECT users.id, users.username FROM friends 
         JOIN users ON friends.user_id = users.id
         WHERE friends.friend_id = ? AND friends.status = 'pending'
     """, (user_id,))
     friend_requests = cursor.fetchall()
-    # Чаты с количеством непрочитанных сообщений
     cursor.execute("""
         SELECT chats.id, users.username,
                (SELECT COUNT(*) FROM chat_messages 
@@ -166,7 +192,7 @@ def home():
         WHERE (chats.user1_id = ? OR chats.user2_id = ?) AND users.id != ?
     """, (user_id, user_id, user_id, user_id))
     chats = cursor.fetchall()
-    # Уведомления о непрочитанных сообщениях
+    # Уведомления
     cursor.execute("""
         SELECT users.username, 
                (SELECT COUNT(*) FROM chat_messages 
@@ -183,15 +209,12 @@ def home():
              AND chat_messages.is_read = 0) > 0
     """, (user_id, user_id, user_id, user_id, user_id))
     unread_notifications = cursor.fetchall()
-    # Формируем уведомления в формате {имя пользователя}: {кол-во непрочитанных}
-    notifications = []
-    for username, unread_count in unread_notifications:
-        notifications.append((f"{username}: {unread_count}", None))  # created_at не нужен, оставляем None
-    # Добавляем остальные уведомления из таблицы notifications
+    notifications = [(f"{username} sent you {unread_count} message(s)", None) for username, unread_count in unread_notifications]
     cursor.execute("SELECT content, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC", (user_id,))
     notifications.extend(cursor.fetchall())
     conn.close()
     if user:
+        send_notifications(user_id)  # Отправляем уведомления при загрузке страницы
         return render_template('home.html', username=user[0], posts=posts, friends=friends,
                              friend_requests=friend_requests, notifications=notifications, chats=chats)
     return redirect(url_for('login'))
@@ -203,23 +226,51 @@ def like_post(post_id):
     user_id = session['user_id']
     conn = sqlite3.connect('nana.db')
     cursor = conn.cursor()
-    # Проверяем, есть ли уже реакция от пользователя
     cursor.execute("SELECT reaction FROM post_reactions WHERE post_id = ? AND user_id = ?", (post_id, user_id))
     existing_reaction = cursor.fetchone()
+
     if existing_reaction:
         if existing_reaction[0] == 'like':
-            # Если уже лайк, убираем реакцию
             cursor.execute("DELETE FROM post_reactions WHERE post_id = ? AND user_id = ?", (post_id, user_id))
         else:
-            # Если был дизлайк, меняем на лайк
             cursor.execute("UPDATE post_reactions SET reaction = 'like' WHERE post_id = ? AND user_id = ?",
                           (post_id, user_id))
     else:
-        # Если реакции не было, добавляем лайк
         cursor.execute("INSERT INTO post_reactions (post_id, user_id, reaction) VALUES (?, ?, 'like')",
                       (post_id, user_id))
+        # Уведомление о лайке
+        cursor.execute("SELECT user_id, username FROM posts JOIN users ON posts.user_id = users.id WHERE posts.id = ?", (post_id,))
+        post_owner = cursor.fetchone()
+        if post_owner and post_owner[0] != user_id:
+            cursor.execute("SELECT username FROM users WHERE id = ?", (user_id,))
+            liker_username = cursor.fetchone()[0]
+            cursor.execute("INSERT INTO notifications (user_id, content) VALUES (?, ?)",
+                          (post_owner[0], f"{liker_username} liked your post"))
+            conn.commit()
+            send_notifications(post_owner[0])  # Отправляем уведомление владельцу поста
+
     conn.commit()
+
+    # Получаем обновлённые данные о лайках и дизлайках
+    cursor.execute("""
+        SELECT (SELECT COUNT(*) FROM post_reactions WHERE post_id = ? AND reaction = 'like') AS likes,
+               (SELECT COUNT(*) FROM post_reactions WHERE post_id = ? AND reaction = 'dislike') AS dislikes,
+               (SELECT reaction FROM post_reactions WHERE post_id = ? AND user_id = ?) AS user_reaction
+    """, (post_id, post_id, post_id, user_id))
+    reaction_data = cursor.fetchone()
+    likes, dislikes, user_reaction = reaction_data if reaction_data else (0, 0, None)
+
     conn.close()
+
+    # Отправляем событие всем клиентам
+    socketio.emit('post_reaction_updated', {
+        'post_id': post_id,
+        'likes': likes,
+        'dislikes': dislikes,
+        'user_id': user_id,
+        'user_reaction': user_reaction
+    })
+
     return redirect(request.referrer or url_for('home'))
 
 @app.route('/dislike_post/<int:post_id>', methods=['POST'])
@@ -229,24 +280,71 @@ def dislike_post(post_id):
     user_id = session['user_id']
     conn = sqlite3.connect('nana.db')
     cursor = conn.cursor()
-    # Проверяем, есть ли уже реакция от пользователя
     cursor.execute("SELECT reaction FROM post_reactions WHERE post_id = ? AND user_id = ?", (post_id, user_id))
     existing_reaction = cursor.fetchone()
+
     if existing_reaction:
         if existing_reaction[0] == 'dislike':
-            # Если уже дизлайк, убираем реакцию
             cursor.execute("DELETE FROM post_reactions WHERE post_id = ? AND user_id = ?", (post_id, user_id))
         else:
-            # Если был лайк, меняем на дизлайк
             cursor.execute("UPDATE post_reactions SET reaction = 'dislike' WHERE post_id = ? AND user_id = ?",
                           (post_id, user_id))
     else:
-        # Если реакции не было, добавляем дизлайк
         cursor.execute("INSERT INTO post_reactions (post_id, user_id, reaction) VALUES (?, ?, 'dislike')",
                       (post_id, user_id))
+        # Уведомление о дизлайке
+        cursor.execute("SELECT user_id, username FROM posts JOIN users ON posts.user_id = users.id WHERE posts.id = ?", (post_id,))
+        post_owner = cursor.fetchone()
+        if post_owner and post_owner[0] != user_id:
+            cursor.execute("SELECT username FROM users WHERE id = ?", (user_id,))
+            disliker_username = cursor.fetchone()[0]
+            cursor.execute("INSERT INTO notifications (user_id, content) VALUES (?, ?)",
+                          (post_owner[0], f"{disliker_username} disliked your post"))
+            conn.commit()
+            send_notifications(post_owner[0])  # Отправляем уведомление владельцу поста
+
+    conn.commit()
+
+    # Получаем обновлённые данные о лайках и дизлайках
+    cursor.execute("""
+        SELECT (SELECT COUNT(*) FROM post_reactions WHERE post_id = ? AND reaction = 'like') AS likes,
+               (SELECT COUNT(*) FROM post_reactions WHERE post_id = ? AND reaction = 'dislike') AS dislikes,
+               (SELECT reaction FROM post_reactions WHERE post_id = ? AND user_id = ?) AS user_reaction
+    """, (post_id, post_id, post_id, user_id))
+    reaction_data = cursor.fetchone()
+    likes, dislikes, user_reaction = reaction_data if reaction_data else (0, 0, None)
+
+    conn.close()
+
+    # Отправляем событие всем клиентам
+    socketio.emit('post_reaction_updated', {
+        'post_id': post_id,
+        'likes': likes,
+        'dislikes': dislikes,
+        'user_id': user_id,
+        'user_reaction': user_reaction
+    })
+
+    return redirect(request.referrer or url_for('home'))
+
+@app.route('/clear_notifications', methods=['POST'])
+def clear_notifications():
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'Not logged in'}), 401
+
+    user_id = session['user_id']
+    conn = sqlite3.connect('nana.db')
+    cursor = conn.cursor()
+
+    # Удаляем все уведомления пользователя
+    cursor.execute("DELETE FROM notifications WHERE user_id = ?", (user_id,))
     conn.commit()
     conn.close()
-    return redirect(request.referrer or url_for('home'))
+
+    # Отправляем обновление через SocketIO
+    send_notifications(user_id)
+
+    return jsonify({'status': 'success', 'message': 'Notifications cleared'}), 200
 
 @app.route('/create_post', methods=['POST'])
 def create_post():
@@ -268,15 +366,22 @@ def create_post():
     conn.commit()
     cursor.execute("SELECT username FROM users WHERE id = ?", (user_id,))
     username = cursor.fetchone()[0]
-    cursor.execute("SELECT created_at FROM posts WHERE id = LAST_INSERT_ROWID()")
-    created_at = cursor.fetchone()[0]
+    cursor.execute("SELECT id, created_at FROM posts WHERE id = LAST_INSERT_ROWID()")
+    post_id, created_at = cursor.fetchone()
     conn.close()
+
+    # Отправляем событие всем клиентам
     socketio.emit('new_post', {
+        'id': post_id,
         'username': username,
         'content': content,
         'image': image_filename,
-        'created_at': created_at
+        'created_at': created_at,
+        'likes': 0,
+        'dislikes': 0,
+        'user_reaction': None
     })
+
     return redirect(url_for('home'))
 
 @app.route('/profile', methods=['GET', 'POST'])
@@ -367,14 +472,12 @@ def chat(chat_id):
     if chat is None:
         return "Chat not found", 404
     friend_id = chat[0] if chat[1] == user_id else chat[1]
-    # Отмечаем все сообщения от собеседника как прочитанные
     cursor.execute("""
         UPDATE chat_messages 
         SET is_read = 1 
         WHERE chat_id = ? AND sender_id = ? AND is_read = 0
     """, (chat_id, friend_id))
     conn.commit()
-    # Получаем обновлённое количество непрочитанных сообщений для всех чатов
     cursor.execute("""
         SELECT chats.id, users.username,
                (SELECT COUNT(*) FROM chat_messages 
@@ -386,25 +489,6 @@ def chat(chat_id):
         WHERE (chats.user1_id = ? OR chats.user2_id = ?) AND users.id != ?
     """, (user_id, user_id, user_id, user_id))
     chats = cursor.fetchall()
-    # Получаем обновлённые уведомления о непрочитанных сообщениях
-    cursor.execute("""
-        SELECT users.username, 
-               (SELECT COUNT(*) FROM chat_messages 
-                WHERE chat_messages.chat_id = chats.id 
-                AND chat_messages.sender_id != ? 
-                AND chat_messages.is_read = 0) AS unread_count
-        FROM chats 
-        JOIN users ON (chats.user1_id = users.id OR chats.user2_id = users.id)
-        WHERE (chats.user1_id = ? OR chats.user2_id = ?) 
-        AND users.id != ?
-        AND (SELECT COUNT(*) FROM chat_messages 
-             WHERE chat_messages.chat_id = chats.id 
-             AND chat_messages.sender_id != ? 
-             AND chat_messages.is_read = 0) > 0
-    """, (user_id, user_id, user_id, user_id, user_id))
-    unread_notifications = cursor.fetchall()
-    notifications = [(f"{username}: {unread_count}", None) for username, unread_count in unread_notifications]
-    # Получаем сообщения чата
     cursor.execute("""
         SELECT users.username, chat_messages.content, chat_messages.created_at 
         FROM chat_messages
@@ -416,12 +500,7 @@ def chat(chat_id):
     cursor.execute("SELECT username FROM users WHERE id = ?", (friend_id,))
     friend = cursor.fetchone()
     conn.close()
-    # Отправляем событие через SocketIO для обновления Chats и Notifications
-    socketio.emit('update_unread', {
-        'user_id': user_id,
-        'chats': [{'chat_id': chat[0], 'username': chat[1], 'unread_count': chat[2]} for chat in chats],
-        'notifications': notifications
-    }, room=str(user_id))
+    send_notifications(user_id)  # Обновляем уведомления после прочтения
     return render_template('chat.html', chat_id=chat_id, friend=friend[0], messages=messages, user_id=user_id)
 
 @app.route('/send_message/<int:chat_id>', methods=['POST'])
@@ -439,6 +518,9 @@ def send_message(chat_id):
     created_at = cursor.fetchone()[0]
     cursor.execute("SELECT username FROM users WHERE id = ?", (user_id,))
     sender_username = cursor.fetchone()[0]
+    cursor.execute("SELECT user1_id, user2_id FROM chats WHERE id = ?", (chat_id,))
+    chat = cursor.fetchone()
+    receiver_id = chat[0] if chat[1] == user_id else chat[1]
     conn.close()
     message_data = {
         'chat_id': chat_id,
@@ -447,8 +529,8 @@ def send_message(chat_id):
         'content': message,
         'created_at': created_at
     }
-    print(f"Sending message via SocketIO: {message_data}")
     socketio.emit('new_message', message_data, room=str(chat_id))
+    send_notifications(receiver_id)  # Обновляем уведомления для получателя
     return {'status': 'success', 'message': 'Message sent'}, 200
 
 @app.route('/add_friend/<int:friend_id>')
@@ -469,13 +551,18 @@ def add_friend(friend_id):
         cursor.execute("SELECT created_at FROM friends WHERE user_id = ? AND friend_id = ?",
                       (user_id, friend_id))
         created_at = cursor.fetchone()[0]
-        conn.close()
+        cursor.execute("INSERT INTO notifications (user_id, content, created_at) VALUES (?, ?, ?)",
+                      (friend_id, f"{username} sent you a friend request", created_at))
+        conn.commit()
+
+        # Отправляем событие получателю запроса
         socketio.emit('new_friend_request', {
             'sender_id': user_id,
-            'receiver_id': friend_id,
-            'username': username,
-            'created_at': created_at
+            'sender_username': username,
+            'receiver_id': friend_id
         }, room=str(friend_id))
+
+        send_notifications(friend_id)
     conn.close()
     return redirect(url_for('home'))
 
@@ -502,19 +589,24 @@ def accept_friend(friend_id):
         cursor.execute("SELECT created_at FROM friends WHERE user_id = ? AND friend_id = ?",
                       (user_id, friend_id))
         created_at = cursor.fetchone()[0]
-        conn.close()
-        socketio.emit('friend_accepted', {
+        cursor.execute("INSERT INTO notifications (user_id, content, created_at) VALUES (?, ?, ?)",
+                      (friend_id, f"{accepter_username} accepted your friend request", created_at))
+        conn.commit()
+
+        # Отправляем событие обоим пользователям
+        socketio.emit('friend_request_accepted', {
             'user_id': user_id,
             'friend_id': friend_id,
-            'username': friend_username,
-            'created_at': created_at
-        }, room=str(friend_id))
-        socketio.emit('friend_accepted', {
+            'friend_username': friend_username
+        }, room=str(user_id))
+        socketio.emit('friend_request_accepted', {
             'user_id': friend_id,
             'friend_id': user_id,
-            'username': accepter_username,
-            'created_at': created_at
-        }, room=str(user_id))
+            'friend_username': accepter_username
+        }, room=str(friend_id))
+
+        send_notifications(friend_id)
+        send_notifications(user_id)
     conn.close()
     return redirect(url_for('home'))
 
@@ -527,6 +619,13 @@ def reject_friend(friend_id):
     cursor = conn.cursor()
     cursor.execute("DELETE FROM friends WHERE user_id = ? AND friend_id = ?", (friend_id, user_id))
     conn.commit()
+
+    # Отправляем событие текущему пользователю
+    socketio.emit('friend_request_rejected', {
+        'friend_id': friend_id
+    }, room=str(user_id))
+
+    send_notifications(user_id)
     conn.close()
     return redirect(url_for('home'))
 
@@ -583,10 +682,9 @@ def search_user():
             return render_template('search_user.html', error="User not found")
     return render_template('search_user.html')
 
-
 if __name__ == '__main__':
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
     init_db()
     port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    socketio.run(app, host="0.0.0.0", port=port, debug=True, allow_unsafe_werkzeug=True)
