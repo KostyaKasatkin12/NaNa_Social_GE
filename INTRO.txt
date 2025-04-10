@@ -1,0 +1,4 @@
+Код запускается на Replit
+Возможно если у вас он не работает в VS коде или PyCharm, надо поменять строку
+    socketio.run(app, host="0.0.0.0", port=port, debug=True, allow_unsafe_werkzeug=True)
+заместо socketio используйте app.run(...)
