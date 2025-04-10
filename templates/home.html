@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Welcome, {{ username }}</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.1/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.js"></script>
     <style>
         /* Глобальные стили */
         * {
@@ -16,7 +16,7 @@
         body {
             font-family: 'Roboto', sans-serif;
             background-color: #f5f5f5;
-            color: #333; /* Тёмный текст для светлой темы */
+            color: #333;
             overflow-x: hidden;
             transition: background-color 0.3s, color 0.3s;
         }
@@ -79,7 +79,7 @@
             border-radius: 8px;
             font-size: 14px;
             background-color: #fafafa;
-            color: #333; /* Тёмный текст для светлой темы */
+            color: #333;
             transition: border-color 0.3s, background-color 0.3s, color 0.3s;
         }
         textarea:focus, input[type="text"]:focus {
@@ -121,7 +121,7 @@
         }
         .file-input-label {
             font-size: 14px;
-            color: #666; /* Тёмный текст для светлой темы */
+            color: #666;
             transition: color 0.3s;
         }
         .file-input::-webkit-file-upload-button {
@@ -149,7 +149,7 @@
         .sidebar-left h2 {
             font-size: 16px;
             font-weight: 600;
-            color: #333; /* Тёмный текст для светлой темы */
+            color: #333;
             margin-bottom: 15px;
             transition: color 0.3s;
         }
@@ -182,7 +182,7 @@
         .sidebar-right h2 {
             font-size: 16px;
             font-weight: 600;
-            color: #333; /* Тёмный текст для светлой темы */
+            color: #333;
             margin-bottom: 15px;
             transition: color 0.3s;
         }
@@ -230,7 +230,7 @@
         }
         .post-reactions span {
             font-size: 14px;
-            color: #666; /* Тёмный текст для светлой темы */
+            color: #666;
             transition: color 0.3s;
         }
         .friend-request {
@@ -273,14 +273,14 @@
             width: 100%;
             text-align: center;
             font-size: 12px;
-            color: #666; /* Тёмный текст для светлой темы */
+            color: #666;
             box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.05);
             transition: background-color 0.3s, color 0.3s;
         }
         /* Темная тема */
         body.dark-theme {
             background-color: #1a1a1a;
-            color: #e0e0e0; /* Светлый текст для тёмной темы */
+            color: #e0e0e0;
         }
         body.dark-theme header,
         body.dark-theme .container,
@@ -293,13 +293,13 @@
         body.dark-theme header h1,
         body.dark-theme .sidebar-left h2,
         body.dark-theme .sidebar-right h2 {
-            color: #e0e0e0; /* Светлый текст для тёмной темы */
+            color: #e0e0e0;
         }
         body.dark-theme textarea,
         body.dark-theme input[type="text"] {
             background-color: #333;
             border-color: #404040;
-            color: #e0e0e0; /* Светлый текст для тёмной темы */
+            color: #e0e0e0;
         }
         body.dark-theme .post,
         body.dark-theme .friend-request {
@@ -313,7 +313,7 @@
         body.dark-theme .post-reactions span,
         body.dark-theme footer,
         body.dark-theme .file-input-label {
-            color: #b0b0b0; /* Светло-серый для второстепенного текста в тёмной теме */
+            color: #b0b0b0;
         }
         body.dark-theme a,
         body.dark-theme .post-reactions button {
@@ -343,6 +343,32 @@
                 right: 10px;
                 top: 10px;
             }
+        }
+        /* Стили для кнопки Write ALL */
+        .notifications-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .clear-notifications-btn {
+            padding: 6px 12px;
+            font-size: 12px;
+            background-color: #dc3545;
+            border-radius: 20px;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .clear-notifications-btn:hover {
+            background-color: #c82333;
+        }
+        body.dark-theme .clear-notifications-btn {
+            background-color: #ff5555;
+        }
+        body.dark-theme .clear-notifications-btn:hover {
+            background-color: #cc4444;
         }
     </style>
 </head>
@@ -404,7 +430,10 @@
             </ul>
         </div>
         <div class="notifications-section">
-            <h2>Notifications</h2>
+            <div class="notifications-header">
+                <h2>Notifications</h2>
+                <button class="clear-notifications-btn" id="clear-notifications">Write ALL</button>
+            </div>
             <ul class="notifications" id="notifications-list">
                 {% if notifications %}
                     {% for notification in notifications %}
@@ -454,7 +483,7 @@
                         <div class="post-reactions">
                             <form action="{{ url_for('like_post', post_id=post[0]) }}" method="POST" style="display:inline;">
                                 <button type="submit">
-                                    {% if post[7] == 'like' %}
+                                    {% if post[7] == 'liked' %}
                                         Unlike
                                     {% else %}
                                         Like
@@ -464,7 +493,7 @@
                             <span>{{ post[5] }} likes</span>
                             <form action="{{ url_for('dislike_post', post_id=post[0]) }}" method="POST" style="display:inline;">
                                 <button type="submit">
-                                    {% if post[7] == 'dislike' %}
+                                    {% if post[7] == 'disliked' %}
                                         Undislike
                                     {% else %}
                                         Dislike
@@ -489,7 +518,7 @@
                                 <div class="post-reactions">
                                     <form action="{{ url_for('like_post', post_id=post[0]) }}" method="POST" style="display:inline;">
                                         <button type="submit">
-                                            {% if post[7] == 'like' %}
+                                            {% if post[7] == 'liked' %}
                                                 Unlike
                                             {% else %}
                                                 Like
@@ -499,7 +528,7 @@
                                     <span>{{ post[5] }} likes</span>
                                     <form action="{{ url_for('dislike_post', post_id=post[0]) }}" method="POST" style="display:inline;">
                                         <button type="submit">
-                                            {% if post[7] == 'dislike' %}
+                                            {% if post[7] == 'disliked' %}
                                                 Undislike
                                             {% else %}
                                                 Dislike
@@ -531,30 +560,33 @@
 
     <script>
         // Инициализация SocketIO
-        const socket = io.connect('http://' + document.domain + ':' + location.port);
+        const socket = io.connect(window.location.origin);
         const userId = {{ session['user_id'] | tojson }};
-        socket.emit('join_room', userId);
 
-        socket.on('update_unread', function(data) {
+        // Подключение и отладка
+        socket.on('connect', () => {
+            console.log('Connected to SocketIO server');
+            socket.emit('join_room', userId);
+            console.log(`Joined user room: ${userId}`);
+        });
+
+        // Обработка ошибок подключения
+        socket.on('connect_error', (error) => {
+            console.error('SocketIO connection error:', error);
+        });
+
+        // Обновление уведомлений в реальном времени
+        socket.on('update_notifications', function(data) {
             if (data.user_id !== userId) return;
-            const chatsList = document.getElementById('chats-list');
-            chatsList.innerHTML = '';
-            data.chats.forEach(chat => {
-                const li = document.createElement('li');
-                li.setAttribute('data-chat-id', chat.chat_id);
-                li.innerHTML = `
-                    <a href="/chat/${chat.chat_id}">${chat.username}</a>
-                    ${chat.unread_count > 0 ? `<span class="unread-count">${chat.unread_count}</span>` : ''}
-                `;
-                chatsList.appendChild(li);
-            });
-
+            console.log('Received update_notifications:', data);
             const notificationsList = document.getElementById('notifications-list');
             notificationsList.innerHTML = '';
-            if (data.notifications.length > 0) {
+            if (data.notifications && data.notifications.length > 0) {
                 data.notifications.forEach(notification => {
                     const li = document.createElement('li');
-                    li.innerHTML = notification[0] + (notification[1] ? ` <span>(${notification[1]})</span>` : '');
+                    const content = notification[0];
+                    const created_at = notification[1] ? ` <span>(${notification[1]})</span>` : '';
+                    li.innerHTML = content + created_at;
                     notificationsList.appendChild(li);
                 });
             } else {
@@ -564,11 +596,154 @@
             }
         });
 
+        // Обновление списка чатов при новом сообщении
+        socket.on('new_message', function(data) {
+            if (data.sender_id !== userId) {
+                console.log('New message received:', data);
+                const chatsList = document.getElementById('chats-list');
+                const chatItem = chatsList.querySelector(`[data-chat-id="${data.chat_id}"]`);
+                if (chatItem) {
+                    const unreadSpan = chatItem.querySelector('.unread-count');
+                    let unreadCount = unreadSpan ? parseInt(unreadSpan.textContent) + 1 : 1;
+                    if (unreadSpan) {
+                        unreadSpan.textContent = unreadCount;
+                    } else {
+                        const newSpan = document.createElement('span');
+                        newSpan.className = 'unread-count';
+                        newSpan.textContent = unreadCount;
+                        chatItem.appendChild(newSpan);
+                    }
+                }
+            }
+        });
+
+        // Очистка всех уведомлений
+        document.getElementById('clear-notifications').addEventListener('click', () => {
+            fetch('/clear_notifications', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ user_id: userId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    console.log('Notifications cleared');
+                    const notificationsList = document.getElementById('notifications-list');
+                    notificationsList.innerHTML = '<li>No new notifications</li>';
+                } else {
+                    console.error('Failed to clear notifications:', data.message);
+                }
+            })
+            .catch(error => console.error('Error clearing notifications:', error));
+        });
+
+        // Обработка нового поста
+        socket.on('new_post', function(data) {
+            console.log('New post received:', data);
+            const postsContainer = document.getElementById('posts');
+            const postDiv = document.createElement('div');
+            postDiv.className = 'post';
+            postDiv.setAttribute('data-post-id', data.id); // Добавляем идентификатор поста
+            postDiv.innerHTML = `
+                <p><strong>${data.username}</strong> (${data.created_at}):</p>
+                <p>${data.content}</p>
+                ${data.image ? `<img src="/static/avatars/${data.image}" alt="Post image" class="post-image">` : ''}
+                <div class="post-reactions">
+                    <form action="/like_post/${data.id}" method="POST" style="display:inline;">
+                        <button type="submit">Like</button>
+                    </form>
+                    <span>${data.likes} likes</span>
+                    <form action="/dislike_post/${data.id}" method="POST" style="display:inline;">
+                        <button type="submit">Dislike</button>
+                    </form>
+                    <span>${data.dislikes} dislikes</span>
+                </div>
+            `;
+            postsContainer.insertBefore(postDiv, postsContainer.firstChild);
+        });
+
+        // Обработка нового запроса на дружбу
+        socket.on('new_friend_request', function(data) {
+            console.log('New friend request received:', data);
+            const friendRequestsList = document.querySelector('.friend-requests');
+            const li = document.createElement('li');
+            li.className = 'friend-request';
+            li.setAttribute('data-sender-id', data.sender_id); // Добавляем идентификатор отправителя
+            li.innerHTML = `
+                ${data.sender_username}
+                <div>
+                    <form action="/accept_friend/${data.sender_id}" method="POST" style="display:inline;">
+                        <button type="submit">Accept</button>
+                    </form>
+                    <form action="/reject_friend/${data.sender_id}" method="POST" style="display:inline;">
+                        <button type="submit">Reject</button>
+                    </form>
+                </div>
+            `;
+            friendRequestsList.insertBefore(li, friendRequestsList.firstChild);
+        });
+
+        // Обработка принятия запроса на дружбу
+        socket.on('friend_request_accepted', function(data) {
+            console.log('Friend request accepted:', data);
+            const friendRequestsList = document.querySelector('.friend-requests');
+            const requestItems = friendRequestsList.getElementsByTagName('li');
+            for (let item of requestItems) {
+                if (item.getAttribute('data-sender-id') == data.friend_id) {
+                    item.remove();
+                    break;
+                }
+            }
+            const friendsList = document.querySelector('.friend-list') || document.createElement('ul');
+            if (!friendsList.className) {
+                friendsList.className = 'friend-list';
+                document.querySelector('.friends-section').appendChild(friendsList);
+                document.querySelector('.friends-section p')?.remove();
+            }
+            const friendLi = document.createElement('li');
+            friendLi.className = 'friend-item';
+            friendLi.innerHTML = `<span>👤</span><a href="/create_chat/${data.friend_id}">${data.friend_username}</a>`;
+            friendsList.insertBefore(friendLi, friendsList.firstChild);
+        });
+
+        // Обработка отклонения запроса на дружбу
+        socket.on('friend_request_rejected', function(data) {
+            console.log('Friend request rejected:', data);
+            const friendRequestsList = document.querySelector('.friend-requests');
+            const requestItems = friendRequestsList.getElementsByTagName('li');
+            for (let item of requestItems) {
+                if (item.getAttribute('data-sender-id') == data.friend_id) {
+                    item.remove();
+                    break;
+                }
+            }
+        });
+
+        // Обработка обновления реакций на пост
+        socket.on('post_reaction_updated', function(data) {
+            console.log('Post reaction updated:', data);
+            const postDiv = document.querySelector(`.post[data-post-id="${data.post_id}"]`);
+            if (postDiv) {
+                const likeButton = postDiv.querySelector('form[action^="/like_post"] button');
+                const dislikeButton = postDiv.querySelector('form[action^="/dislike_post"] button');
+                const likeSpan = postDiv.querySelector('.post-reactions span:nth-child(2)');
+                const dislikeSpan = postDiv.querySelector('.post-reactions span:nth-child(4)');
+
+                likeSpan.textContent = `${data.likes} likes`;
+                dislikeSpan.textContent = `${data.dislikes} dislikes`;
+
+                if (data.user_id === userId) {
+                    likeButton.textContent = data.user_reaction === 'like' ? 'Unlike' : 'Like';
+                    dislikeButton.textContent = data.user_reaction === 'dislike' ? 'Undislike' : 'Dislike';
+                }
+            }
+        });
+
         // Переключение темы
         const themeToggleButton = document.getElementById('theme-toggle');
         const body = document.body;
-
-        // Загрузка сохранённой темы
         const savedTheme = localStorage.getItem('theme');
         if (savedTheme === 'dark') {
             body.classList.add('dark-theme');
@@ -577,8 +752,6 @@
             body.classList.remove('dark-theme');
             themeToggleButton.textContent = 'Switch to Dark Theme';
         }
-
-        // Обработчик клика
         themeToggleButton.addEventListener('click', () => {
             if (body.classList.contains('dark-theme')) {
                 body.classList.remove('dark-theme');
@@ -605,6 +778,15 @@
                 }
             });
         }
+
+        // Добавляем атрибут data-post-id к существующим постам
+        document.querySelectorAll('.post').forEach(post => {
+            const likeForm = post.querySelector('form[action^="/like_post"]');
+            if (likeForm) {
+                const postId = likeForm.action.split('/').pop();
+                post.setAttribute('data-post-id', postId);
+            }
+        });
     </script>
 </body>
 </html>
