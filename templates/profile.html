@@ -4,176 +4,514 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Profile</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f0f2f5;
-            color: #050505;
-        }
-
-        header {
-            background-color: #1877f2;
-            color: white;
-            padding: 15px;
-            text-align: center;
-        }
-
-        main {
-            max-width: 800px;
-            margin: 20px auto;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            padding: 20px;
-        }
-
-        h1 {
-            font-size: 24px;
-            margin-bottom: 20px;
-        }
-
-        form {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            margin-top: 10px;
-            font-weight: bold;
-        }
-
-        textarea, select, input[type="file"] {
-            width: 100%;
-            padding: 10px;
-            margin-top: 5px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 14px;
-            resize: none;
-        }
-
-        button {
-            margin-top: 15px;
-            padding: 10px 20px;
-            background-color: #1877f2;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background-color: #155db0;
-        }
-
-        ul {
-            list-style: none;
-            padding: 0;
-        }
-
-        li {
-            background: #f5f6f7;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            margin-bottom: 10px;
-        }
-
-        .posts {
-            margin-top: 30px;
-        }
-
-        .post {
-            background: #f5f6f7;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            margin-bottom: 15px;
-        }
-
-        a {
-            color: #1877f2;
-            text-decoration: none;
-            font-weight: bold;
-        }
-
-        a:hover {
-            text-decoration: underline;
-        }
-
-        .avatar {
-            width: 150px;
-            height: 150px;
-            border-radius: 50%;
-            object-fit: cover;
-            margin-bottom: 20px;
-        }
-    </style>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React and ReactDOM CDNs -->
+    <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    <!-- Babel CDN for JSX transpilation -->
+    <script src="https://unpkg.com/@babel/standalone@7.22.10/babel.min.js"></script>
 </head>
-<body>
-    <header>
-        <h1>Welcome, {{ user[0] }}</h1>
-    </header>
+<body class="bg-gray-100 min-h-screen">
+    <div id="root"></div>
+    <!-- Pass data from Flask to React as JSON -->
+    <script type="application/json" id="initial-data">
+        {
+            "user": {{ user | tojson }},
+            "posts": {{ posts | tojson }},
+            "friends": {{ friends | tojson }},
+            "cities": {{ cities | tojson }}
+        }
+    </script>
+    <script type="text/babel">
+        console.log("Script loaded");
 
-    <main>
-        <!-- Отображение аватара -->
-        {% if user[3] %}
-            <img src="{{ url_for('static', filename='avatars/' + user[3]) }}" alt="Avatar" class="avatar">
-        {% else %}
-            <p>No avatar uploaded yet.</p>
-        {% endif %}
+        const { useState } = React;
 
-        <!-- Форма загрузки аватара -->
-        <h2>Upload Avatar</h2>
-        <form method="post" enctype="multipart/form-data">
-            <label for="avatar">Choose Avatar:</label>
-            <input type="file" id="avatar" name="avatar" accept="image/*">
-            <button type="submit">Upload</button>
-        </form>
+        // Safely parse initial data
+        let initialData;
+        try {
+            initialData = JSON.parse(document.getElementById("initial-data").textContent);
+            console.log("Initial data from Flask:", initialData);
+        } catch (error) {
+            console.error("Error parsing initial data:", error);
+            initialData = { user: ["Unknown", "", "не интересуюсь", null, ""], posts: [], friends: [], cities: [] };
+        }
 
-        <!-- Форма редактирования профиля -->
-        <h2>Edit Profile</h2>
-        <form method="post">
-            <label for="description">Description:</label>
-            <textarea id="description" name="description" rows="4" cols="50">{{ user[1] }}</textarea>
+        // Validate user data
+        const userData = initialData.user;
+        if (!Array.isArray(userData) || userData.length < 5) {
+            console.error("Invalid user data:", userData);
+            initialData.user = ["Unknown", "", "не интересуюсь", null, ""];
+        }
 
-            <label for="relationship_status">Relationship Status:</label>
-            <select id="relationship_status" name="relationship_status">
-                <option value="не интересуюсь" {% if user[2] == 'не интересуюсь' %}selected{% endif %}>не интересуюсь</option>
-                <option value="интересуюсь" {% if user[2] == 'интересуюсь' %}selected{% endif %}>интересуюсь</option>
-            </select>
+        // Validate relationshipStatus
+        const validStatuses = ["не интересуюсь", "интересуюсь"];
+        const rawRelationshipStatus = initialData.user[2];
+        const relationshipStatus = validStatuses.includes(rawRelationshipStatus)
+            ? rawRelationshipStatus
+            : "не интересуюсь";
 
-            <button type="submit">Save Changes</button>
-        </form>
+        const initialUser = {
+            username: initialData.user[0] || "Unknown",
+            description: initialData.user[1] || "",
+            relationshipStatus: relationshipStatus,
+            avatar: initialData.user[3] ? `/static/avatars/${initialData.user[3]}` : null,
+            city: initialData.user[4] || ""
+        };
+        const initialPosts = initialData.posts.map((post, index) => ({
+            id: index + 1,
+            content: post[0],
+            timestamp: post[1],
+            image: post[2] ? `/static/avatars/${post[2]}` : null
+        }));
+        const initialFriends = initialData.friends.map((friend, index) => ({
+            id: index + 1,
+            username: friend[0]
+        }));
+        const cities = initialData.cities;
 
-        <!-- Форма создания поста -->
-        <h2>Create a Post</h2>
-        <form method="post">
-            <textarea name="post_content" rows="4" placeholder="What's on your mind?" required></textarea>
-            <button type="submit">Post</button>
-        </form>
+        // Error Boundary Component
+        class ErrorBoundary extends React.Component {
+            state = { hasError: false, error: null };
 
-        <h2>Your Posts</h2>
-        <div class="posts">
-            {% for post in posts %}
-                <div class="post">
-                    <p>{{ post[0] }}</p>
-                    <small>{{ post[1] }}</small>
+            static getDerivedStateFromError(error) {
+                return { hasError: true, error };
+            }
+
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div className="p-4 text-red-600">
+                            <h2>Something went wrong.</h2>
+                            <p>{this.state.error?.message || "Unknown error"}</p>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
+        }
+
+        // ProfileInfo Component
+        const ProfileInfo = ({ user, onEdit }) => {
+            console.log("Rendering ProfileInfo", user);
+            return (
+                <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+                    <h2 className="text-2xl font-bold mb-4 text-gray-800">Profile Information</h2>
+                    {user.avatar ? (
+                        <img
+                            src={user.avatar}
+                            alt="Avatar"
+                            className="w-32 h-32 rounded-full object-cover mx-auto mb-4"
+                        />
+                    ) : (
+                        <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-4">
+                            <span className="text-gray-500">No Avatar</span>
+                        </div>
+                    )}
+                    <p className="text-lg"><strong>Username:</strong> {user.username}</p>
+                    <p className="text-lg"><strong>Description:</strong> {user.description || "No description"}</p>
+                    <p className="text-lg"><strong>Relationship Status:</strong> {user.relationshipStatus}</p>
+                    <p className="text-lg"><strong>City:</strong> {user.city || "Not specified"}</p>
+                    <button
+                        onClick={() => {
+                            console.log("Edit Profile clicked");
+                            onEdit();
+                        }}
+                        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                    >
+                        Edit Profile
+                    </button>
                 </div>
-            {% endfor %}
-        </div>
+            );
+        };
 
-        <h2>Your Friends</h2>
-        <ul>
-            {% for friend in friends %}
-                <li>{{ friend[0] }}</li>
-            {% endfor %}
-        </ul>
+        // AvatarUpload Component
+        const AvatarUpload = ({ onUpload }) => {
+            const [file, setFile] = useState(null);
 
-        <a href="{{ url_for('home') }}">Back to Home</a>
-    </main>
+            const handleUpload = () => {
+                if (file) {
+                    const formData = new FormData();
+                    formData.append("avatar", file);
+                    fetch("/profile", {
+                        method: "POST",
+                        body: formData
+                    })
+                        .then(response => response.text())
+                        .then(() => {
+                            onUpload(file);
+                            setFile(null);
+                            window.location.reload();
+                        })
+                        .catch(error => console.error("Error uploading avatar:", error));
+                }
+            };
+
+            return (
+                <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+                    <h2 className="text-2xl font-bold mb-4 text-gray-800">Upload Avatar</h2>
+                    <div>
+                        <label htmlFor="avatar" className="block text-sm font-medium text-gray-700 mb-2 font-bold">
+                            Choose Avatar:
+                        </label>
+                        <input
+                            type="file"
+                            id="avatar"
+                            accept="image/*"
+                            onChange={(e) => setFile(e.target.files[0])}
+                            className="block w-full text-sm text-gray-500
+                                file:mr-4 file:py-2 file:px-4
+                                file:rounded-lg file:border-0
+                                file:text-sm file:font-semibold
+                                file:bg-blue-50 file:text-blue-700
+                                hover:file:bg-blue-100"
+                        />
+                        <button
+                            onClick={handleUpload}
+                            disabled={!file}
+                            className={`mt-4 px-4 py-2 rounded-lg text-white ${
+                                file ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-400 cursor-not-allowed"
+                            } transition`}
+                        >
+                            Upload
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        // EditProfile Component (simplified to ensure rendering)
+        const EditProfile = ({ user, cities, onSave, onCancel }) => {
+            const [formData, setFormData] = useState({
+                description: user.description || "",
+                relationshipStatus: user.relationshipStatus,
+                city: user.city || ""
+            });
+
+            const handleChange = (e) => {
+                console.log("Field changed:", e.target.name, "to:", e.target.value);
+                setFormData({ ...formData, [e.target.name]: e.target.value });
+            };
+
+            const handleSave = () => {
+                console.log("Saving profile:", formData);
+                const saveData = new FormData();
+                saveData.append("description", formData.description);
+                saveData.append("relationship_status", formData.relationshipStatus);
+                saveData.append("city", formData.city);
+                fetch("/profile", {
+                    method: "POST",
+                    body: saveData
+                })
+                    .then(response => response.text())
+                    .then(() => {
+                        onSave(formData);
+                        window.location.reload();
+                    })
+                    .catch(error => console.error("Error saving profile:", error));
+            };
+
+            console.log("Rendering EditProfile", formData);
+            return (
+                <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+                    <h2 className="text-2xl font-bold mb-4 text-gray-800">Edit Profile</h2>
+                    <div>
+                        <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2 font-bold">
+                            Description:
+                        </label>
+                        <textarea
+                            id="description"
+                            name="description"
+                            rows="4"
+                            value={formData.description}
+                            onChange={handleChange}
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-800"
+                        />
+                        <label htmlFor="relationshipStatus" className="block text-sm font-medium text-gray-700 mt-4 mb-2 font-bold">
+                            Relationship Status:
+                        </label>
+                        <select
+                            id="relationshipStatus"
+                            name="relationshipStatus"
+                            value={formData.relationshipStatus}
+                            onChange={handleChange}
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-800"
+                        >
+                            <option value="не интересуюсь">не интересуюсь</option>
+                            <option value="интересуюсь">интересуюсь</option>
+                        </select>
+                        <label htmlFor="city" className="block text-sm font-medium text-gray-700 mt-4 mb-2 font-bold">
+                            City:
+                        </label>
+                        <select
+                            id="city"
+                            name="city"
+                            value={formData.city}
+                            onChange={handleChange}
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-800"
+                        >
+                            <option value="">Not specified</option>
+                            {cities.map((city) => (
+                                <option key={city} value={city}>{city}</option>
+                            ))}
+                        </select>
+                        <div className="mt-4 flex space-x-4">
+                            <button
+                                onClick={handleSave}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                            >
+                                Save Changes
+                            </button>
+                            <button
+                                onClick={onCancel}
+                                className="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // New RelationshipStatus Component (standalone section)
+        const RelationshipStatus = ({ currentStatus, onSave }) => {
+            const [status, setStatus] = useState(currentStatus);
+
+            const handleSave = () => {
+                console.log("Saving relationship status:", status);
+                const saveData = new FormData();
+                saveData.append("description", initialUser.description || ""); // Keep existing description
+                saveData.append("relationship_status", status);
+                saveData.append("city", initialUser.city || ""); // Keep existing city
+                fetch("/profile", {
+                    method: "POST",
+                    body: saveData
+                })
+                    .then(response => response.text())
+                    .then(() => {
+                        onSave(status);
+                        window.location.reload();
+                    })
+                    .catch(error => console.error("Error saving relationship status:", error));
+            };
+
+            return (
+                <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+                    <h2 className="text-2xl font-bold mb-4 text-gray-800">Change Relationship Status</h2>
+                    <div>
+                        <label htmlFor="relationshipStatusStandalone" className="block text-sm font-medium text-gray-700 mb-2 font-bold">
+                            Relationship Status:
+                        </label>
+                        <select
+                            id="relationshipStatusStandalone"
+                            value={status}
+                            onChange={(e) => setStatus(e.target.value)}
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-800"
+                        >
+                            <option value="не интересуюсь">не интересуюсь</option>
+                            <option value="интересуюсь">интересуюсь</option>
+                        </select>
+                        <button
+                            onClick={handleSave}
+                            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                        >
+                            Save Status
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        // CreatePost Component
+        const CreatePost = ({ onPost }) => {
+            const [content, setContent] = useState("");
+            const [image, setImage] = useState(null);
+
+            const handlePost = () => {
+                if (content.trim()) {
+                    const formData = new FormData();
+                    formData.append("post_content", content);
+                    if (image) {
+                        formData.append("image", image);
+                    }
+                    fetch("/profile", {
+                        method: "POST",
+                        body: formData
+                    })
+                        .then(response => response.text())
+                        .then(() => {
+                            onPost({ content, image });
+                            setContent("");
+                            setImage(null);
+                            window.location.reload();
+                        })
+                        .catch(error => console.error("Error creating post:", error));
+                }
+            };
+
+            return (
+                <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+                    <h2 className="text-2xl font-bold mb-4 text-gray-800">Create a Post</h2>
+                    <div>
+                        <textarea
+                            value={content}
+                            onChange={(e) => setContent(e.target.value)}
+                            placeholder="What's on your mind?"
+                            rows="4"
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 mb-4 text-gray-800"
+                            required
+                        />
+                        <label htmlFor="image" className="block text-sm font-medium text-gray-700 mb-2 font-bold">
+                            Attach Image:
+                        </label>
+                        <input
+                            type="file"
+                            id="image"
+                            accept="image/*"
+                            onChange={(e) => setImage(e.target.files[0])}
+                            className="block w-full text-sm text-gray-500
+                                file:mr-4 file:py-2 file:px-4
+                                file:rounded-lg file:border-0
+                                file:text-sm file:font-semibold
+                                file:bg-blue-50 file:text-blue-700
+                                hover:file:bg-blue-100"
+                        />
+                        <button
+                            onClick={handlePost}
+                            disabled={!content.trim()}
+                            className={`mt-4 px-4 py-2 rounded-lg text-white ${
+                                content.trim() ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-400 cursor-not-allowed"
+                            } transition`}
+                        >
+                            Post
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        // PostList Component
+        const PostList = ({ posts }) => (
+            <div className="mb-6">
+                <h2 className="text-2xl font-bold mb-4 text-gray-800">Your Posts</h2>
+                {posts.map((post) => (
+                    <div key={post.id} className="bg-white p-6 rounded-lg shadow-md mb-4">
+                        <p className="text-gray-800">{post.content}</p>
+                        {post.image && (
+                            <img
+                                src={post.image}
+                                alt="Post"
+                                className="mt-4 max-w-full rounded-lg"
+                            />
+                        )}
+                        <p className="text-sm text-gray-500 mt-2">{post.timestamp}</p>
+                    </div>
+                ))}
+            </div>
+        );
+
+        // FriendsList Component
+        const FriendsList = ({ friends }) => (
+            <div className="mb-6">
+                <h2 className="text-2xl font-bold mb-4 text-gray-800">Your Friends</h2>
+                <ul className="space-y-2">
+                    {friends.map((friend) => (
+                        <li
+                            key={friend.id}
+                            className="bg-white p-4 rounded-lg shadow-md text-gray-800"
+                        >
+                            {friend.username}
+                        </li>
+                    ))}
+                </ul>
+            </div>
+        );
+
+        // Main App Component
+        const App = () => {
+            const [user, setUser] = useState(initialUser);
+            const [posts, setPosts] = useState(initialPosts);
+            const [friends] = useState(initialFriends);
+            const [isEditing, setIsEditing] = useState(false);
+
+            const handleAvatarUpload = (file) => {
+                const avatarUrl = URL.createObjectURL(file);
+                setUser({ ...user, avatar: avatarUrl });
+            };
+
+            const handleProfileSave = (updatedUser) => {
+                setUser(updatedUser);
+                setIsEditing(false);
+            };
+
+            const handleRelationshipStatusSave = (newStatus) => {
+                setUser({ ...user, relationshipStatus: newStatus });
+            };
+
+            const handlePost = (newPost) => {
+                const post = {
+                    id: posts.length + 1,
+                    content: newPost.content,
+                    image: newPost.image ? URL.createObjectURL(newPost.image) : null,
+                    timestamp: new Date().toISOString().slice(0, 16).replace("T", " ")
+                };
+                setPosts([post, ...posts]);
+            };
+
+            console.log("Rendering App, isEditing:", isEditing);
+            return (
+                <ErrorBoundary>
+                    <div className="max-w-4xl mx-auto p-4">
+                        <header className="bg-blue-600 text-white p-6 rounded-lg shadow-md mb-6 text-center">
+                            <h1 className="text-3xl font-bold">Welcome, {user.username}</h1>
+                        </header>
+                        <main>
+                            {isEditing ? (
+                                <EditProfile
+                                    user={user}
+                                    cities={cities}
+                                    onSave={handleProfileSave}
+                                    onCancel={() => {
+                                        console.log("Cancel EditProfile");
+                                        setIsEditing(false);
+                                    }}
+                                />
+                            ) : (
+                                <ProfileInfo user={user} onEdit={() => {
+                                    console.log("Setting isEditing to true");
+                                    setIsEditing(true);
+                                }} />
+                            )}
+                            <RelationshipStatus
+                                currentStatus={user.relationshipStatus}
+                                onSave={handleRelationshipStatusSave}
+                            />
+                            <AvatarUpload onUpload={handleAvatarUpload} />
+                            <CreatePost onPost={handlePost} />
+                            <PostList posts={posts} />
+                            <FriendsList friends={friends} />
+                            <a
+                                href="{{ url_for('home') }}"
+                                className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                            >
+                                Back to Home
+                            </a>
+                        </main>
+                    </div>
+                </ErrorBoundary>
+            );
+        };
+
+        // Render the app
+        console.log("Attempting to render");
+        try {
+            const root = ReactDOM.createRoot(document.getElementById("root"));
+            root.render(<App />);
+        } catch (error) {
+            console.error("Error rendering app:", error);
+        }
+    </script>
 </body>
 </html>
