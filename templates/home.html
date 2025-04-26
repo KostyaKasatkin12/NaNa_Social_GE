@@ -1,562 +1,209 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="w-full h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Welcome, {{ username }}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS Configuration -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        };
+    </script>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SocketIO CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.js"></script>
-    <style>
-        /* Глобальные стили */
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        body {
-            font-family: 'Roboto', sans-serif;
-            background-color: #f5f5f5;
-            color: #333;
-            overflow-x: hidden;
-            transition: background-color 0.3s, color 0.3s;
-        }
-        header {
-            background-color: #fff;
-            padding: 15px 20px;
-            border-bottom: 1px solid #e0e0e0;
-            position: fixed;
-            top: 0;
-            width: 100%;
-            z-index: 1000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-            transition: background-color 0.3s, color 0.3s;
-        }
-        header h1 {
-            font-size: 20px;
-            font-weight: 500;
-        }
-        .theme-toggle {
-            position: fixed;
-            top: 15px;
-            right: 20px;
-            padding: 8px 15px;
-            background-color: #007bff;
-            color: #fff;
-            border: none;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: background-color 0.3s, transform 0.2s;
-            z-index: 1001;
-        }
-        .theme-toggle:hover {
-            background-color: #0056b3;
-            transform: scale(1.05);
-        }
-        .main-content {
-            margin: 80px 220px 60px 220px;
-            padding-bottom: 20px;
-        }
-        .container {
-            background-color: #fff;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-            transition: background-color 0.3s;
-        }
-        .container:hover {
-            transform: translateY(-2px);
-        }
-        textarea, input[type="text"] {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 14px;
-            background-color: #fafafa;
-            color: #333;
-            transition: border-color 0.3s, background-color 0.3s, color 0.3s;
-        }
-        textarea:focus, input[type="text"]:focus {
-            border-color: #007bff;
-            outline: none;
-        }
-        button {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 20px;
-            background-color: #007bff;
-            color: #fff;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        a {
-            color: #007bff;
-            text-decoration: none;
-            font-weight: 500;
-            transition: color 0.3s;
-        }
-        a:hover {
-            text-decoration: underline;
-        }
-        .post-image {
-            max-width: 100%;
-            border-radius: 8px;
-            margin-top: 10px;
-        }
-        .create-post-form {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-        .file-input-label {
-            font-size: 14px;
-            color: #666;
-            transition: color 0.3s;
-        }
-        .file-input::-webkit-file-upload-button {
-            background-color: #007bff;
-            color: #fff;
-            border: none;
-            padding: 8px 12px;
-            border-radius: 20px;
-            cursor: pointer;
-        }
-        .sidebar-left {
-            position: fixed;
-            left: 0;
-            top: 60px;
-            bottom: 60px;
-            width: 220px;
-            padding: 20px;
-            background-color: #fff;
-            border-right: 1px solid #e0e0e0;
-            border-radius: 0 12px 12px 0;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-            overflow-y: auto;
-            transition: background-color 0.3s;
-        }
-        .sidebar-left h2 {
-            font-size: 16px;
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 15px;
-            transition: color 0.3s;
-        }
-        .sidebar-left ul li {
-            padding: 12px;
-            border-radius: 8px;
-            margin: 5px 0;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            transition: background-color 0.3s;
-        }
-        .sidebar-left ul li:hover {
-            background-color: #f0f0f0;
-        }
-        .sidebar-right {
-            position: fixed;
-            right: 0;
-            top: 60px;
-            bottom: 60px;
-            width: 220px;
-            padding: 20px;
-            background-color: #fff;
-            border-left: 1px solid #e0e0e0;
-            border-radius: 12px 0 0 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-            overflow-y: auto;
-            transition: background-color 0.3s;
-        }
-        .sidebar-right h2 {
-            font-size: 16px;
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 15px;
-            transition: color 0.3s;
-        }
-        .sidebar-right ul li {
-            padding: 12px;
-            border-radius: 8px;
-            margin: 5px 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: background-color 0.3s;
-        }
-        .sidebar-right ul li:hover {
-            background-color: #f0f0f0;
-        }
-        .unread-count {
-            background-color: #007bff;
-            color: #fff;
-            border-radius: 12px;
-            padding: 2px 8px;
-            font-size: 12px;
-        }
-        .post {
-            padding: 15px 0;
-            border-bottom: 1px solid #e0e0e0;
-            transition: border-color 0.3s;
-        }
-        .post-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .post-reactions {
-            display: flex;
-            gap: 15px;
-            margin-top: 10px;
-        }
-        .post-reactions button {
-            background: none;
-            color: #007bff;
-            font-weight: 600;
-            padding: 0;
-            transition: color 0.3s;
-        }
-        .post-reactions span {
-            font-size: 14px;
-            color: #666;
-            transition: color 0.3s;
-        }
-        .friend-request {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid #e0e0e0;
-            transition: border-color 0.3s;
-        }
-        .friend-request button {
-            padding: 6px 12px;
-            font-size: 12px;
-        }
-        .search-form {
-            display: flex;
-            gap: 10px;
-        }
-        .toggle-posts {
-            text-align: center;
-            padding: 10px;
-            background-color: #f0f0f0;
-            border-radius: 8px;
-            cursor: pointer;
-            color: #007bff;
-            transition: background-color 0.3s, color 0.3s;
-        }
-        .toggle-posts:hover {
-            background-color: #e0e0e0;
-        }
-        .hidden-posts {
-            display: none;
-        }
-        footer {
-            padding: 15px;
-            background-color: #fff;
-            border-top: 1px solid #e0e0e0;
-            position: fixed;
-            bottom: 0;
-            width: 100%;
-            text-align: center;
-            font-size: 12px;
-            color: #666;
-            box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.05);
-            transition: background-color 0.3s, color 0.3s;
-        }
-        /* Темная тема */
-        body.dark-theme {
-            background-color: #1a1a1a;
-            color: #e0e0e0;
-        }
-        body.dark-theme header,
-        body.dark-theme .container,
-        body.dark-theme .sidebar-left,
-        body.dark-theme .sidebar-right,
-        body.dark-theme footer {
-            background-color: #262626;
-            border-color: #404040;
-        }
-        body.dark-theme header h1,
-        body.dark-theme .sidebar-left h2,
-        body.dark-theme .sidebar-right h2 {
-            color: #e0e0e0;
-        }
-        body.dark-theme textarea,
-        body.dark-theme input[type="text"] {
-            background-color: #333;
-            border-color: #404040;
-            color: #e0e0e0;
-        }
-        body.dark-theme .post,
-        body.dark-theme .friend-request {
-            border-color: #404040;
-        }
-        body.dark-theme .sidebar-left ul li:hover,
-        body.dark-theme .sidebar-right ul li:hover,
-        body.dark-theme .toggle-posts {
-            background-color: #333;
-        }
-        body.dark-theme .post-reactions span,
-        body.dark-theme footer,
-        body.dark-theme .file-input-label {
-            color: #b0b0b0;
-        }
-        body.dark-theme a,
-        body.dark-theme .post-reactions button {
-            color: #66b0ff;
-        }
-        body.dark-theme .theme-toggle {
-            background-color: #66b0ff;
-        }
-        body.dark-theme .theme-toggle:hover {
-            background-color: #4a8cff;
-        }
-        /* Адаптивность */
-        @media (max-width: 900px) {
-            .main-content {
-                margin-left: 0;
-                margin-right: 0;
-                padding: 20px;
-            }
-            .sidebar-left,
-            .sidebar-right {
-                position: static;
-                width: 100%;
-                border-radius: 12px;
-                margin-bottom: 20px;
-            }
-            .theme-toggle {
-                right: 10px;
-                top: 10px;
-            }
-        }
-        /* Стили для кнопки Write ALL */
-        .notifications-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        .clear-notifications-btn {
-            padding: 6px 12px;
-            font-size: 12px;
-            background-color: #dc3545;
-            border-radius: 20px;
-            color: #fff;
-            border: none;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        .clear-notifications-btn:hover {
-            background-color: #c82333;
-        }
-        body.dark-theme .clear-notifications-btn {
-            background-color: #ff5555;
-        }
-        body.dark-theme .clear-notifications-btn:hover {
-            background-color: #cc4444;
-        }
-    </style>
+    <!-- Google Fonts (Poppins) -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body>
-    <header>
-        <h1>Welcome, {{ username }}</h1>
-    </header>
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen font-poppins w-full h-full text-gray-800 dark:text-gray-200 transition-colors duration-300">
+    <div class="max-w-4xl mx-auto p-4 sm:p-6">
+        <header class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-6 rounded-xl shadow-lg mb-8 text-center">
+            <h1 class="text-3xl sm:text-4xl font-bold leading-relaxed">Welcome, {{ username }}</h1>
+        </header>
 
-    <button class="theme-toggle" id="theme-toggle">Switch to Dark Theme</button>
-
-    <div class="sidebar-left">
-        <div class="friends-section">
-            <h2>Your Friends</h2>
-            {% if friends %}
-                <ul class="friend-list">
-                    {% for friend in friends %}
-                        <li class="friend-item">
-                            <span>👤</span>
-                            <a href="{{ url_for('create_chat', friend_id=friend[1]) }}">{{ friend[0] }}</a>
-                        </li>
-                    {% endfor %}
-                </ul>
-            {% else %}
-                <p>No friends yet.</p>
-            {% endif %}
-        </div>
-        <div class="friend-requests-section">
-            <h2>Friend Requests</h2>
-            <ul class="friend-requests">
-                {% for request in friend_requests %}
-                    <li class="friend-request">
-                        {{ request[1] }}
-                        <div>
-                            <form action="{{ url_for('accept_friend', friend_id=request[0]) }}" method="POST" style="display:inline;">
-                                <button type="submit">Accept</button>
-                            </form>
-                            <form action="{{ url_for('reject_friend', friend_id=request[0]) }}" method="POST" style="display:inline;">
-                                <button type="submit">Reject</button>
-                            </form>
-                        </div>
-                    </li>
-                {% endfor %}
-            </ul>
-        </div>
-    </div>
-
-    <div class="sidebar-right">
-        <div class="chats-section">
-            <h2>Chats</h2>
-            <ul id="chats-list">
-                {% for chat in chats %}
-                    <li data-chat-id="{{ chat[0] }}">
-                        <a href="{{ url_for('chat', chat_id=chat[0]) }}">{{ chat[1] }}</a>
-                        {% if chat[2] > 0 %}
-                            <span class="unread-count">{{ chat[2] }}</span>
-                        {% endif %}
-                    </li>
-                {% endfor %}
-            </ul>
-        </div>
-        <div class="notifications-section">
-            <div class="notifications-header">
-                <h2>Notifications</h2>
-                <button class="clear-notifications-btn" id="clear-notifications">Write ALL</button>
+        <main class="flex flex-col md:flex-row gap-8 min-h-[calc(100vh-200px)]">
+            <!-- Left Sidebar (Friends and Friend Requests) -->
+            <div class="w-full md:w-1/3 flex flex-col gap-6 md:flex-1">
+                <div class="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-md hover:shadow-lg transition flex-1">
+                    <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                        <i class="fas fa-users text-blue-500 dark:text-blue-400"></i> Your Friends
+                    </h2>
+                    {% if friends %}
+                        <ul class="space-y-3">
+                            {% for friend in friends %}
+                                <li class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                                    <div class="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                                        <i class="fas fa-user text-blue-500 dark:text-blue-400"></i>
+                                    </div>
+                                    <a href="{{ url_for('create_chat', friend_id=friend[1]) }}" class="text-blue-500 dark:text-blue-400 hover:underline font-medium">{{ friend[0] }}</a>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-gray-500 dark:text-gray-400 italic">No friends yet.</p>
+                    {% endif %}
+                </div>
+                <div class="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-md hover:shadow-lg transition flex-1">
+                    <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                        <i class="fas fa-user-plus text-blue-500 dark:text-blue-400"></i> Friend Requests
+                    </h2>
+                    <ul class="space-y-3 friend-requests">
+                        {% for request in friend_requests %}
+                            <li class="flex justify-between items-center p-3 border-b border-gray-200 dark:border-gray-700" data-sender-id="{{ request[0] }}">
+                                <span class="font-medium text-gray-700 dark:text-gray-300">{{ request[1] }}</span>
+                                <div class="flex gap-2">
+                                    <form action="{{ url_for('accept_friend', friend_id=request[0]) }}" method="POST" class="inline">
+                                        <button type="submit" class="px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 hover:scale-105 transition min-h-12">Accept</button>
+                                    </form>
+                                    <form action="{{ url_for('reject_friend', friend_id=request[0]) }}" method="POST" class="inline">
+                                        <button type="submit" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 hover:scale-105 transition min-h-12">Reject</button>
+                                    </form>
+                                </div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
             </div>
-            <ul class="notifications" id="notifications-list">
-                {% if notifications %}
-                    {% for notification in notifications %}
-                        <li>
-                            {{ notification[0] }}
-                            {% if notification[1] %}
-                                <span>({{ notification[1] }})</span>
-                            {% endif %}
-                        </li>
-                    {% endfor %}
-                {% else %}
-                    <li>No new notifications</li>
-                {% endif %}
-            </ul>
-        </div>
-    </div>
 
-    <div class="main-content">
-        <div class="container">
-            <div class="post-header">
-                <h2>Create a Post</h2>
-                <a href="{{ url_for('profile') }}" class="edit-profile-btn">
-                    <button>Edit Profile</button>
-                </a>
-            </div>
-            <form method="POST" action="{{ url_for('create_post') }}" enctype="multipart/form-data" class="create-post-form">
-                <textarea name="content" placeholder="What's on your mind?" required></textarea>
-                <label class="file-input-label">
-                    <input type="file" name="image" accept="image/*" class="file-input">
-                </label>
-                <button type="submit">Post</button>
-            </form>
-        </div>
-
-        <div class="container">
-            <h2>Posts</h2>
-            <div id="posts">
-                {% for post in posts[:5] %}
-                    <div class="post">
-                        <p><strong>{{ post[3] }}</strong> ({{ post[2] }}):</p>
-                        <p>{{ post[1] }}</p>
-                        {% if post[4] %}
-                            <img src="{{ url_for('static', filename='avatars/' + post[4]) }}"
-                                 alt="Post image"
-                                 class="post-image">
-                        {% endif %}
-                        <div class="post-reactions">
-                            <form action="{{ url_for('like_post', post_id=post[0]) }}" method="POST" style="display:inline;">
-                                <button type="submit">
-                                    {% if post[7] == 'liked' %}
-                                        Unlike
-                                    {% else %}
-                                        Like
-                                    {% endif %}
-                                </button>
-                            </form>
-                            <span>{{ post[5] }} likes</span>
-                            <form action="{{ url_for('dislike_post', post_id=post[0]) }}" method="POST" style="display:inline;">
-                                <button type="submit">
-                                    {% if post[7] == 'disliked' %}
-                                        Undislike
-                                    {% else %}
-                                        Dislike
-                                    {% endif %}
-                                </button>
-                            </form>
-                            <span>{{ post[6] }} dislikes</span>
-                        </div>
+            <!-- Main Content -->
+            <div class="w-full md:w-2/3 flex flex-col gap-6">
+                <div class="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-md hover:shadow-lg transition">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl sm:text-2xl font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                            <i class="fas fa-pen text-blue-500 dark:text-blue-400"></i> Create a Post
+                        </h2>
+                        <a href="{{ url_for('profile') }}" class="px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 hover:scale-105 transition min-h-12">Edit Profile</a>
                     </div>
-                {% endfor %}
-                {% if posts|length > 5 %}
-                    <div class="hidden-posts" id="hidden-posts">
-                        {% for post in posts[5:] %}
-                            <div class="post">
-                                <p><strong>{{ post[3] }}</strong> ({{ post[2] }}):</p>
-                                <p>{{ post[1] }}</p>
+                    <form method="POST" action="{{ url_for('create_post') }}" enctype="multipart/form-data" class="flex flex-col gap-4">
+                        <textarea name="content" placeholder="What's on your mind?" required class="w-full p-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-800 dark:text-gray-200 dark:bg-gray-700 min-h-24"></textarea>
+                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Attach Image:
+                            <input type="file" name="image" accept="image/*" class="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 dark:file:bg-blue-900 file:text-blue-500 dark:file:text-blue-400 hover:file:bg-blue-100 dark:hover:file:bg-blue-800 mt-1"/>
+                        </label>
+                        <button type="submit" class="px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 hover:scale-105 transition min-h-12">Post</button>
+                    </form>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-md hover:shadow-lg transition">
+                    <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                        <i class="fas fa-newspaper text-blue-500 dark:text-blue-400"></i> Posts
+                    </h2>
+                    <div id="posts">
+                        {% for post in posts[:5] %}
+                            <div class="post pb-4 mb-4 border-b border-gray-200 dark:border-gray-700" data-post-id="{{ post[0] }}">
+                                <p class="text-lg font-medium"><strong>{{ post[3] }}</strong> <span class="text-gray-500 dark:text-gray-400">({{ post[2] }})</span></p>
+                                <p class="text-gray-800 dark:text-gray-200 mt-1 leading-relaxed">{{ post[1] }}</p>
                                 {% if post[4] %}
-                                    <img src="{{ url_for('static', filename='avatars/' + post[4]) }}"
-                                         alt="Post image"
-                                         class="post-image">
+                                    <img src="{{ url_for('static', filename='avatars/' + post[4]) }}" alt="Post image" class="mt-4 max-w-full rounded-lg"/>
                                 {% endif %}
-                                <div class="post-reactions">
-                                    <form action="{{ url_for('like_post', post_id=post[0]) }}" method="POST" style="display:inline;">
-                                        <button type="submit">
-                                            {% if post[7] == 'liked' %}
-                                                Unlike
-                                            {% else %}
-                                                Like
-                                            {% endif %}
+                                <div class="flex gap-4 mt-3">
+                                    <form action="{{ url_for('like_post', post_id=post[0]) }}" method="POST" class="inline">
+                                        <button type="submit" class="text-blue-500 dark:text-blue-400 font-semibold hover:text-blue-600 dark:hover:text-blue-300 transition">
+                                            {% if post[7] == 'liked' %}Unlike{% else %}Like{% endif %}
                                         </button>
                                     </form>
-                                    <span>{{ post[5] }} likes</span>
-                                    <form action="{{ url_for('dislike_post', post_id=post[0]) }}" method="POST" style="display:inline;">
-                                        <button type="submit">
-                                            {% if post[7] == 'disliked' %}
-                                                Undislike
-                                            {% else %}
-                                                Dislike
-                                            {% endif %}
+                                    <span class="text-gray-500 dark:text-gray-400">{{ post[5] }} likes</span>
+                                    <form action="{{ url_for('dislike_post', post_id=post[0]) }}" method="POST" class="inline">
+                                        <button type="submit" class="text-blue-500 dark:text-blue-400 font-semibold hover:text-blue-600 dark:hover:text-blue-300 transition">
+                                            {% if post[7] == 'disliked' %}Undislike{% else %}Dislike{% endif %}
                                         </button>
                                     </form>
-                                    <span>{{ post[6] }} dislikes</span>
+                                    <span class="text-gray-500 dark:text-gray-400">{{ post[6] }} dislikes</span>
                                 </div>
                             </div>
                         {% endfor %}
+                        {% if posts|length > 5 %}
+                            <div class="hidden-posts" id="hidden-posts" style="display: none;">
+                                {% for post in posts[5:] %}
+                                    <div class="post pb-4 mb-4 border-b border-gray-200 dark:border-gray-700" data-post-id="{{ post[0] }}">
+                                        <p class="text-lg font-medium"><strong>{{ post[3] }}</strong> <span class="text-gray-500 dark:text-gray-400">({{ post[2] }})</span></p>
+                                        <p class="text-gray-800 dark:text-gray-200 mt-1 leading-relaxed">{{ post[1] }}</p>
+                                        {% if post[4] %}
+                                            <img src="{{ url_for('static', filename='avatars/' + post[4]) }}" alt="Post image" class="mt-4 max-w-full rounded-lg"/>
+                                        {% endif %}
+                                        <div class="flex gap-4 mt-3">
+                                            <form action="{{ url_for('like_post', post_id=post[0]) }}" method="POST" class="inline">
+                                                <button type="submit" class="text-blue-500 dark:text-blue-400 font-semibold hover:text-blue-600 dark:hover:text-blue-300 transition">
+                                                    {% if post[7] == 'liked' %}Unlike{% else %}Like{% endif %}
+                                                </button>
+                                            </form>
+                                            <span class="text-gray-500 dark:text-gray-400">{{ post[5] }} likes</span>
+                                            <form action="{{ url_for('dislike_post', post_id=post[0]) }}" method="POST" class="inline">
+                                                <button type="submit" class="text-blue-500 dark:text-blue-400 font-semibold hover:text-blue-600 dark:hover:text-blue-300 transition">
+                                                    {% if post[7] == 'disliked' %}Undislike{% else %}Dislike{% endif %}
+                                                </button>
+                                            </form>
+                                            <span class="text-gray-500 dark:text-gray-400">{{ post[6] }} dislikes</span>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            <div class="toggle-posts text-center p-3 bg-gray-100 dark:bg-gray-700 rounded-lg cursor-pointer text-blue-500 dark:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-600 hover:scale-105 transition" id="toggle-posts">Show more posts</div>
+                        {% endif %}
                     </div>
-                    <div class="toggle-posts" id="toggle-posts">Show more posts</div>
-                {% endif %}
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-md hover:shadow-lg transition">
+                    <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                        <i class="fas fa-search text-blue-500 dark:text-blue-400"></i> Search Users
+                    </h2>
+                    <form method="POST" action="{{ url_for('search_user') }}" class="flex gap-3">
+                        <input type="text" name="username" placeholder="Search for users..." required class="w-full p-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-800 dark:text-gray-200 dark:bg-gray-700"/>
+                        <button type="submit" class="px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 hover:scale-105 transition min-h-12">Search</button>
+                    </form>
+                </div>
             </div>
-        </div>
 
-        <div class="container">
-            <h2>Search Users</h2>
-            <form method="POST" action="{{ url_for('search_user') }}" class="search-form">
-                <input type="text" name="username" placeholder="Search for users..." required>
-                <button type="submit">Search</button>
-            </form>
-        </div>
+            <!-- Right Sidebar (Chats and Notifications) -->
+            <div class="w-full md:w-1/3 flex flex-col gap-6 md:flex-1">
+                <div class="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-md hover:shadow-lg transition flex-1">
+                    <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                        <i class="fas fa-comments text-blue-500 dark:text-blue-400"></i> Chats
+                    </h2>
+                    <ul id="chats-list" class="space-y-3">
+                        {% for chat in chats %}
+                            <li class="flex justify-between items-center p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition" data-chat-id="{{ chat[0] }}">
+                                <a href="{{ url_for('chat', chat_id=chat[0]) }}" class="text-blue-500 dark:text-blue-400 hover:underline font-medium">{{ chat[1] }}</a>
+                                {% if chat[2] > 0 %}
+                                    <span class="bg-blue-500 dark:bg-blue-600 text-white text-xs px-2 py-1 rounded-full">{{ chat[2] }}</span>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <div class="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-md hover:shadow-lg transition flex-1">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl sm:text-2xl font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                            <i class="fas fa-bell text-blue-500 dark:text-blue-400"></i> Notifications
+                        </h2>
+                        <button id="clear-notifications" class="px-4 py-2 bg-red-500 dark:bg-red-600 text-white rounded-lg hover:bg-red-600 dark:hover:bg-red-700 hover:scale-105 transition min-h-12">Write ALL</button>
+                    </div>
+                    <ul id="notifications-list" class="space-y-3">
+                        {% if notifications %}
+                            {% for notification in notifications %}
+                                <li class="p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                                    {{ notification[0] }}
+                                    {% if notification[1] %}
+                                        <span class="text-gray-500 dark:text-gray-400">({{ notification[1] }})</span>
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        {% else %}
+                            <li class="p-3 text-gray-500 dark:text-gray-400 italic">No new notifications</li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+        </main>
+
+        <footer class="mt-8 text-center text-gray-500 dark:text-gray-400">
+            <a href="{{ url_for('logout') }}" class="text-blue-500 dark:text-blue-400 hover:underline font-medium">Logout</a> | © 2025 Nana Social Network
+        </footer>
     </div>
-
-    <footer>
-        <a href="{{ url_for('logout') }}">Logout</a> | © 2025 Nana Social Network
-    </footer>
 
     <script>
         // Инициализация SocketIO
@@ -584,13 +231,15 @@
             if (data.notifications && data.notifications.length > 0) {
                 data.notifications.forEach(notification => {
                     const li = document.createElement('li');
+                    li.className = 'p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition';
                     const content = notification[0];
-                    const created_at = notification[1] ? ` <span>(${notification[1]})</span>` : '';
+                    const created_at = notification[1] ? ` <span class="text-gray-500 dark:text-gray-400">(${notification[1]})</span>` : '';
                     li.innerHTML = content + created_at;
                     notificationsList.appendChild(li);
                 });
             } else {
                 const li = document.createElement('li');
+                li.className = 'p-3 text-gray-500 dark:text-gray-400 italic';
                 li.textContent = 'No new notifications';
                 notificationsList.appendChild(li);
             }
@@ -603,13 +252,13 @@
                 const chatsList = document.getElementById('chats-list');
                 const chatItem = chatsList.querySelector(`[data-chat-id="${data.chat_id}"]`);
                 if (chatItem) {
-                    const unreadSpan = chatItem.querySelector('.unread-count');
+                    const unreadSpan = chatItem.querySelector('span');
                     let unreadCount = unreadSpan ? parseInt(unreadSpan.textContent) + 1 : 1;
                     if (unreadSpan) {
                         unreadSpan.textContent = unreadCount;
                     } else {
                         const newSpan = document.createElement('span');
-                        newSpan.className = 'unread-count';
+                        newSpan.className = 'bg-blue-500 dark:bg-blue-600 text-white text-xs px-2 py-1 rounded-full';
                         newSpan.textContent = unreadCount;
                         chatItem.appendChild(newSpan);
                     }
@@ -631,7 +280,7 @@
                 if (data.status === 'success') {
                     console.log('Notifications cleared');
                     const notificationsList = document.getElementById('notifications-list');
-                    notificationsList.innerHTML = '<li>No new notifications</li>';
+                    notificationsList.innerHTML = '<li class="p-3 text-gray-500 dark:text-gray-400 italic">No new notifications</li>';
                 } else {
                     console.error('Failed to clear notifications:', data.message);
                 }
@@ -644,21 +293,21 @@
             console.log('New post received:', data);
             const postsContainer = document.getElementById('posts');
             const postDiv = document.createElement('div');
-            postDiv.className = 'post';
-            postDiv.setAttribute('data-post-id', data.id); // Добавляем идентификатор поста
+            postDiv.className = 'post pb-4 mb-4 border-b border-gray-200 dark:border-gray-700';
+            postDiv.setAttribute('data-post-id', data.id);
             postDiv.innerHTML = `
-                <p><strong>${data.username}</strong> (${data.created_at}):</p>
-                <p>${data.content}</p>
-                ${data.image ? `<img src="/static/avatars/${data.image}" alt="Post image" class="post-image">` : ''}
-                <div class="post-reactions">
-                    <form action="/like_post/${data.id}" method="POST" style="display:inline;">
-                        <button type="submit">Like</button>
+                <p class="text-lg font-medium"><strong>${data.username}</strong> <span class="text-gray-500 dark:text-gray-400">(${data.created_at})</span></p>
+                <p class="text-gray-800 dark:text-gray-200 mt-1 leading-relaxed">${data.content}</p>
+                ${data.image ? `<img src="/static/avatars/${data.image}" alt="Post image" class="mt-4 max-w-full rounded-lg">` : ''}
+                <div class="flex gap-4 mt-3">
+                    <form action="/like_post/${data.id}" method="POST" class="inline">
+                        <button type="submit" class="text-blue-500 dark:text-blue-400 font-semibold hover:text-blue-600 dark:hover:text-blue-300 transition">Like</button>
                     </form>
-                    <span>${data.likes} likes</span>
-                    <form action="/dislike_post/${data.id}" method="POST" style="display:inline;">
-                        <button type="submit">Dislike</button>
+                    <span class="text-gray-500 dark:text-gray-400">${data.likes} likes</span>
+                    <form action="/dislike_post/${data.id}" method="POST" class="inline">
+                        <button type="submit" class="text-blue-500 dark:text-blue-400 font-semibold hover:text-blue-600 dark:hover:text-blue-300 transition">Dislike</button>
                     </form>
-                    <span>${data.dislikes} dislikes</span>
+                    <span class="text-gray-500 dark:text-gray-400">${data.dislikes} dislikes</span>
                 </div>
             `;
             postsContainer.insertBefore(postDiv, postsContainer.firstChild);
@@ -669,16 +318,16 @@
             console.log('New friend request received:', data);
             const friendRequestsList = document.querySelector('.friend-requests');
             const li = document.createElement('li');
-            li.className = 'friend-request';
-            li.setAttribute('data-sender-id', data.sender_id); // Добавляем идентификатор отправителя
+            li.className = 'flex justify-between items-center p-3 border-b border-gray-200 dark:border-gray-700';
+            li.setAttribute('data-sender-id', data.sender_id);
             li.innerHTML = `
-                ${data.sender_username}
-                <div>
-                    <form action="/accept_friend/${data.sender_id}" method="POST" style="display:inline;">
-                        <button type="submit">Accept</button>
+                <span class="font-medium text-gray-700 dark:text-gray-300">${data.sender_username}</span>
+                <div class="flex gap-2">
+                    <form action="/accept_friend/${data.sender_id}" method="POST" class="inline">
+                        <button type="submit" class="px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 hover:scale-105 transition min-h-12">Accept</button>
                     </form>
-                    <form action="/reject_friend/${data.sender_id}" method="POST" style="display:inline;">
-                        <button type="submit">Reject</button>
+                    <form action="/reject_friend/${data.sender_id}" method="POST" class="inline">
+                        <button type="submit" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 hover:scale-105 transition min-h-12">Reject</button>
                     </form>
                 </div>
             `;
@@ -698,13 +347,17 @@
             }
             const friendsList = document.querySelector('.friend-list') || document.createElement('ul');
             if (!friendsList.className) {
-                friendsList.className = 'friend-list';
+                friendsList.className = 'friend-list space-y-3';
                 document.querySelector('.friends-section').appendChild(friendsList);
                 document.querySelector('.friends-section p')?.remove();
             }
             const friendLi = document.createElement('li');
-            friendLi.className = 'friend-item';
-            friendLi.innerHTML = `<span>👤</span><a href="/create_chat/${data.friend_id}">${data.friend_username}</a>`;
+            friendLi.className = 'flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition';
+            friendLi.innerHTML = `
+                <div class="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                    <i class="fas fa-user text-blue-500 dark:text-blue-400"></i>
+                </div>
+                <a href="/create_chat/${data.friend_id}" class="text-blue-500 dark:text-blue-400 hover:underline font-medium">${data.friend_username}</a>`;
             friendsList.insertBefore(friendLi, friendsList.firstChild);
         });
 
@@ -728,8 +381,8 @@
             if (postDiv) {
                 const likeButton = postDiv.querySelector('form[action^="/like_post"] button');
                 const dislikeButton = postDiv.querySelector('form[action^="/dislike_post"] button');
-                const likeSpan = postDiv.querySelector('.post-reactions span:nth-child(2)');
-                const dislikeSpan = postDiv.querySelector('.post-reactions span:nth-child(4)');
+                const likeSpan = postDiv.querySelector('.flex span:nth-child(2)');
+                const dislikeSpan = postDiv.querySelector('.flex span:nth-child(4)');
 
                 likeSpan.textContent = `${data.likes} likes`;
                 dislikeSpan.textContent = `${data.dislikes} dislikes`;
@@ -746,19 +399,19 @@
         const body = document.body;
         const savedTheme = localStorage.getItem('theme');
         if (savedTheme === 'dark') {
-            body.classList.add('dark-theme');
+            body.classList.add('dark');
             themeToggleButton.textContent = 'Switch to Light Theme';
         } else {
-            body.classList.remove('dark-theme');
+            body.classList.remove('dark');
             themeToggleButton.textContent = 'Switch to Dark Theme';
         }
         themeToggleButton.addEventListener('click', () => {
-            if (body.classList.contains('dark-theme')) {
-                body.classList.remove('dark-theme');
+            if (body.classList.contains('dark')) {
+                body.classList.remove('dark');
                 localStorage.setItem('theme', 'light');
                 themeToggleButton.textContent = 'Switch to Dark Theme';
             } else {
-                body.classList.add('dark-theme');
+                body.classList.add('dark');
                 localStorage.setItem('theme', 'dark');
                 themeToggleButton.textContent = 'Switch to Light Theme';
             }
@@ -778,15 +431,6 @@
                 }
             });
         }
-
-        // Добавляем атрибут data-post-id к существующим постам
-        document.querySelectorAll('.post').forEach(post => {
-            const likeForm = post.querySelector('form[action^="/like_post"]');
-            if (likeForm) {
-                const postId = likeForm.action.split('/').pop();
-                post.setAttribute('data-post-id', postId);
-            }
-        });
     </script>
 </body>
 </html>
