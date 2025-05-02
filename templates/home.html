@@ -100,19 +100,34 @@
                                 {% if post[4] %}
                                     <img src="{{ url_for('static', filename='avatars/' + post[4]) }}" alt="Post image" class="mt-4 max-w-full rounded-lg"/>
                                 {% endif %}
-                                <div class="flex gap-4 mt-3">
+                                <div class="flex gap-4 mt-3 items-center">
                                     <form action="{{ url_for('like_post', post_id=post[0]) }}" method="POST" class="inline">
                                         <button type="submit" class="text-blue-500 dark:text-blue-400 font-semibold hover:text-blue-600 dark:hover:text-blue-300 transition">
-                                            {% if post[7] == 'liked' %}Unlike{% else %}Like{% endif %}
+                                            {% if post[7] == 'like' %}Unlike{% else %}Like{% endif %}
                                         </button>
                                     </form>
                                     <span class="text-gray-500 dark:text-gray-400">{{ post[5] }} likes</span>
                                     <form action="{{ url_for('dislike_post', post_id=post[0]) }}" method="POST" class="inline">
                                         <button type="submit" class="text-blue-500 dark:text-blue-400 font-semibold hover:text-blue-600 dark:hover:text-blue-300 transition">
-                                            {% if post[7] == 'disliked' %}Undislike{% else %}Dislike{% endif %}
+                                            {% if post[7] == 'dislike' %}Undislike{% else %}Dislike{% endif %}
                                         </button>
                                     </form>
                                     <span class="text-gray-500 dark:text-gray-400">{{ post[6] }} dislikes</span>
+                                    <button class="comment-btn text-blue-500 dark:text-blue-400 font-semibold hover:text-blue-600 dark:hover:text-blue-300 transition" data-post-id="{{ post[0] }}">Comment</button>
+                                </div>
+                                <!-- Latest Comment -->
+                                {% if post[8] %}
+                                    <div class="latest-comment mt-3 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                                        <p class="text-sm font-medium text-gray-800 dark:text-gray-200"><strong>{{ post[8][2] }}</strong> <span class="text-gray-500 dark:text-gray-400">({{ post[8][1] }})</span></p>
+                                        <p class="text-gray-700 dark:text-gray-300">{{ post[8][0] }}</p>
+                                    </div>
+                                {% endif %}
+                                <div class="comments-section mt-4 hidden" id="comments-{{ post[0] }}">
+                                    <div class="comments-list space-y-3"></div>
+                                    <form class="comment-form mt-3 flex flex-col gap-3" data-post-id="{{ post[0] }}">
+                                        <textarea name="comment_content" placeholder="Write a comment..." required class="w-full p-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-800 dark:text-gray-200 dark:bg-gray-700 min-h-20"></textarea>
+                                        <button type="submit" class="px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 hover:scale-105 transition">Send</button>
+                                    </form>
                                 </div>
                             </div>
                         {% endfor %}
@@ -125,19 +140,34 @@
                                         {% if post[4] %}
                                             <img src="{{ url_for('static', filename='avatars/' + post[4]) }}" alt="Post image" class="mt-4 max-w-full rounded-lg"/>
                                         {% endif %}
-                                        <div class="flex gap-4 mt-3">
+                                        <div class="flex gap-4 mt-3 items-center">
                                             <form action="{{ url_for('like_post', post_id=post[0]) }}" method="POST" class="inline">
                                                 <button type="submit" class="text-blue-500 dark:text-blue-400 font-semibold hover:text-blue-600 dark:hover:text-blue-300 transition">
-                                                    {% if post[7] == 'liked' %}Unlike{% else %}Like{% endif %}
+                                                    {% if post[7] == 'like' %}Unlike{% else %}Like{% endif %}
                                                 </button>
                                             </form>
                                             <span class="text-gray-500 dark:text-gray-400">{{ post[5] }} likes</span>
                                             <form action="{{ url_for('dislike_post', post_id=post[0]) }}" method="POST" class="inline">
                                                 <button type="submit" class="text-blue-500 dark:text-blue-400 font-semibold hover:text-blue-600 dark:hover:text-blue-300 transition">
-                                                    {% if post[7] == 'disliked' %}Undislike{% else %}Dislike{% endif %}
+                                                    {% if post[7] == 'dislike' %}Undislike{% else %}Dislike{% endif %}
                                                 </button>
                                             </form>
                                             <span class="text-gray-500 dark:text-gray-400">{{ post[6] }} dislikes</span>
+                                            <button class="comment-btn text-blue-500 dark:text-blue-400 font-semibold hover:text-blue-600 dark:hover:text-blue-300 transition" data-post-id="{{ post[0] }}">Comment</button>
+                                        </div>
+                                        <!-- Latest Comment -->
+                                        {% if post[8] %}
+                                            <div class="latest-comment mt-3 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                                                <p class="text-sm font-medium text-gray-800 dark:text-gray-200"><strong>{{ post[8][2] }}</strong> <span class="text-gray-500 dark:text-gray-400">({{ post[8][1] }})</span></p>
+                                                <p class="text-gray-700 dark:text-gray-300">{{ post[8][0] }}</p>
+                                            </div>
+                                        {% endif %}
+                                        <div class="comments-section mt-4 hidden" id="comments-{{ post[0] }}">
+                                            <div class="comments-list space-y-3"></div>
+                                            <form class="comment-form mt-3 flex flex-col gap-3" data-post-id="{{ post[0] }}">
+                                                <textarea name="comment_content" placeholder="Write a comment..." required class="w-full p-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-800 dark:text-gray-200 dark:bg-gray-700 min-h-20"></textarea>
+                                                <button type="submit" class="px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 hover:scale-105 transition">Send</button>
+                                            </form>
                                         </div>
                                     </div>
                                 {% endfor %}
@@ -180,7 +210,7 @@
                         <h2 class="text-xl sm:text-2xl font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
                             <i class="fas fa-bell text-blue-500 dark:text-blue-400"></i> Notifications
                         </h2>
-                        <button id="clear-notifications" class="px-4 py-2 bg-red-500 dark:bg-red-600 text-white rounded-lg hover:bg-red-600 dark:hover:bg-red-700 hover:scale-105 transition min-h-12">Write ALL</button>
+                        <button id="clear-notifications" class="px-4 py-2 bg-red-500 dark:bg-red-600 text-white rounded-lg hover:bg-red-600 dark:hover:bg-red-700 hover:scale-105 transition min-h-12">Clear All</button>
                     </div>
                     <ul id="notifications-list" class="space-y-3">
                         {% if notifications %}
@@ -299,7 +329,7 @@
                 <p class="text-lg font-medium"><strong>${data.username}</strong> <span class="text-gray-500 dark:text-gray-400">(${data.created_at})</span></p>
                 <p class="text-gray-800 dark:text-gray-200 mt-1 leading-relaxed">${data.content}</p>
                 ${data.image ? `<img src="/static/avatars/${data.image}" alt="Post image" class="mt-4 max-w-full rounded-lg">` : ''}
-                <div class="flex gap-4 mt-3">
+                <div class="flex gap-4 mt-3 items-center">
                     <form action="/like_post/${data.id}" method="POST" class="inline">
                         <button type="submit" class="text-blue-500 dark:text-blue-400 font-semibold hover:text-blue-600 dark:hover:text-blue-300 transition">Like</button>
                     </form>
@@ -308,9 +338,103 @@
                         <button type="submit" class="text-blue-500 dark:text-blue-400 font-semibold hover:text-blue-600 dark:hover:text-blue-300 transition">Dislike</button>
                     </form>
                     <span class="text-gray-500 dark:text-gray-400">${data.dislikes} dislikes</span>
+                    <button class="comment-btn text-blue-500 dark:text-blue-400 font-semibold hover:text-blue-600 dark:hover:text-blue-300 transition" data-post-id="${data.id}">Comment</button>
+                </div>
+                <div class="latest-comment mt-3 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg hidden" id="latest-comment-${data.id}"></div>
+                <div class="comments-section mt-4 hidden" id="comments-${data.id}">
+                    <div class="comments-list space-y-3"></div>
+                    <form class="comment-form mt-3 flex flex-col gap-3" data-post-id="${data.id}">
+                        <textarea name="comment_content" placeholder="Write a comment..." required class="w-full p-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-800 dark:text-gray-200 dark:bg-gray-700 min-h-20"></textarea>
+                        <button type="submit" class="px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 hover:scale-105 transition">Send</button>
+                    </form>
                 </div>
             `;
             postsContainer.insertBefore(postDiv, postsContainer.firstChild);
+
+            // Добавить обработчик для новой кнопки Comment
+            const newCommentBtn = postDiv.querySelector('.comment-btn');
+            newCommentBtn.addEventListener('click', () => {
+                const postId = newCommentBtn.getAttribute('data-post-id');
+                const commentsSection = document.getElementById(`comments-${postId}`);
+                const commentsList = commentsSection.querySelector('.comments-list');
+
+                commentsSection.classList.toggle('hidden');
+
+                if (!commentsSection.classList.contains('hidden') && !commentsList.dataset.loaded) {
+                    fetch(`/get_comments/${postId}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            commentsList.innerHTML = '';
+                            data.comments.forEach(comment => {
+                                const commentDiv = document.createElement('div');
+                                commentDiv.className = 'p-3 bg-gray-100 dark:bg-gray-700 rounded-lg';
+                                commentDiv.innerHTML = `
+                                    <p class="text-sm font-medium text-gray-800 dark:text-gray-200"><strong>${comment.username}</strong> <span class="text-gray-500 dark:text-gray-400">(${comment.created_at})</span></p>
+                                    <p class="text-gray-700 dark:text-gray-300">${comment.content}</p>`;
+                                commentsList.appendChild(commentDiv);
+                            });
+                            commentsList.dataset.loaded = 'true';
+                        })
+                        .catch(error => console.error('Error loading comments:', error));
+                }
+            });
+
+            // Добавить обработчик для новой формы комментария
+            const newCommentForm = postDiv.querySelector('.comment-form');
+            newCommentForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const postId = newCommentForm.getAttribute('data-post-id');
+                const content = newCommentForm.querySelector('textarea').value;
+
+                fetch('/add_comment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ post_id: postId, content: content }),
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            const commentsList = newCommentForm.previousElementSibling;
+                            const commentDiv = document.createElement('div');
+                            commentDiv.className = 'p-3 bg-gray-100 dark:bg-gray-700 rounded-lg';
+                            commentDiv.innerHTML = `
+                                <p class="text-sm font-medium text-gray-800 dark:text-gray-200"><strong>${data.username}</strong> <span class="text-gray-500 dark:text-gray-400">(${data.created_at})</span></p>
+                                <p class="text-gray-700 dark:text-gray-300">${content}</p>`;
+                            commentsList.appendChild(commentDiv);
+                            // Обновить последний комментарий
+                            const latestCommentDiv = document.getElementById(`latest-comment-${postId}`);
+                            latestCommentDiv.innerHTML = commentDiv.innerHTML;
+                            latestCommentDiv.classList.remove('hidden');
+                            newCommentForm.reset();
+                            socket.emit('new_comment', {
+                                post_id: postId,
+                                username: data.username,
+                                content: content,
+                                created_at: data.created_at
+                            });
+                        } else {
+                            console.error('Failed to add comment:', data.message);
+                        }
+                    })
+                    .catch(error => console.error('Error adding comment:', error));
+            });
+
+            // Загрузить последний комментарий для нового поста
+            fetch(`/get_comments/${data.id}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.comments.length > 0) {
+                        const latestComment = data.comments[data.comments.length - 1];
+                        const latestCommentDiv = document.getElementById(`latest-comment-${data.id}`);
+                        latestCommentDiv.innerHTML = `
+                            <p class="text-sm font-medium text-gray-800 dark:text-gray-200"><strong>${latestComment.username}</strong> <span class="text-gray-500 dark:text-gray-400">(${latestComment.created_at})</span></p>
+                            <p class="text-gray-700 dark:text-gray-300">${latestComment.content}</p>`;
+                        latestCommentDiv.classList.remove('hidden');
+                    }
+                })
+                .catch(error => console.error('Error loading latest comment:', error));
         });
 
         // Обработка нового запроса на дружбу
@@ -394,8 +518,103 @@
             }
         });
 
+        // Управление комментариями
+        document.querySelectorAll('.comment-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                const postId = button.getAttribute('data-post-id');
+                const commentsSection = document.getElementById(`comments-${postId}`);
+                const commentsList = commentsSection.querySelector('.comments-list');
+
+                // Показать/скрыть секцию комментариев
+                commentsSection.classList.toggle('hidden');
+
+                // Загрузить комментарии при первом открытии
+                if (!commentsSection.classList.contains('hidden') && !commentsList.dataset.loaded) {
+                    fetch(`/get_comments/${postId}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            commentsList.innerHTML = '';
+                            data.comments.forEach(comment => {
+                                const commentDiv = document.createElement('div');
+                                commentDiv.className = 'p-3 bg-gray-100 dark:bg-gray-700 rounded-lg';
+                                commentDiv.innerHTML = `
+                                    <p class="text-sm font-medium text-gray-800 dark:text-gray-200"><strong>${comment.username}</strong> <span class="text-gray-500 dark:text-gray-400">(${comment.created_at})</span></p>
+                                    <p class="text-gray-700 dark:text-gray-300">${comment.content}</p>`;
+                                commentsList.appendChild(commentDiv);
+                            });
+                            commentsList.dataset.loaded = 'true';
+                        })
+                        .catch(error => console.error('Error loading comments:', error));
+                }
+            });
+        });
+
+        // Обработка отправки комментария
+        document.querySelectorAll('.comment-form').forEach(form => {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const postId = form.getAttribute('data-post-id');
+                const content = form.querySelector('textarea').value;
+
+                fetch('/add_comment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ post_id: postId, content: content }),
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            const commentsList = form.previousElementSibling;
+                            const commentDiv = document.createElement('div');
+                            commentDiv.className = 'p-3 bg-gray-100 dark:bg-gray-700 rounded-lg';
+                            commentDiv.innerHTML = `
+                                <p class="text-sm font-medium text-gray-800 dark:text-gray-200"><strong>${data.username}</strong> <span class="text-gray-500 dark:text-gray-400">(${data.created_at})</span></p>
+                                <p class="text-gray-700 dark:text-gray-300">${content}</p>`;
+                            commentsList.appendChild(commentDiv);
+                            // Обновить последний комментарий
+                            const latestCommentDiv = document.getElementById(`latest-comment-${postId}`);
+                            latestCommentDiv.innerHTML = commentDiv.innerHTML;
+                            latestCommentDiv.classList.remove('hidden');
+                            form.reset();
+                            // Уведомить других пользователей через SocketIO
+                            socket.emit('new_comment', {
+                                post_id: postId,
+                                username: data.username,
+                                content: content,
+                                created_at: data.created_at
+                            });
+                        } else {
+                            console.error('Failed to add comment:', data.message);
+                        }
+                    })
+                    .catch(error => console.error('Error adding comment:', error));
+            });
+        });
+
+        // Получение новых комментариев в реальном времени
+        socket.on('new_comment', (data) => {
+            const commentsSection = document.getElementById(`comments-${data.post_id}`);
+            const commentsList = commentsSection.querySelector('.comments-list');
+            if (commentsList && !commentsSection.classList.contains('hidden')) {
+                const commentDiv = document.createElement('div');
+                commentDiv.className = 'p-3 bg-gray-100 dark:bg-gray-700 rounded-lg';
+                commentDiv.innerHTML = `
+                    <p class="text-sm font-medium text-gray-800 dark:text-gray-200"><strong>${data.username}</strong> <span class="text-gray-500 dark:text-gray-400">(${data.created_at})</span></p>
+                    <p class="text-gray-700 dark:text-gray-300">${data.content}</p>`;
+                commentsList.appendChild(commentDiv);
+            }
+            // Обновить последний комментарий
+            const latestCommentDiv = document.getElementById(`latest-comment-${data.post_id}`);
+            latestCommentDiv.innerHTML = `
+                <p class="text-sm font-medium text-gray-800 dark:text-gray-200"><strong>${data.username}</strong> <span class="text-gray-500 dark:text-gray-400">(${data.created_at})</span></p>
+                <p class="text-gray-700 dark:text-gray-300">${data.content}</p>`;
+            latestCommentDiv.classList.remove('hidden');
+        });
+
         // Переключение темы
-        const themeToggleButton = document.getElementById('theme-toggle');
+        const themeToggleButton = document.getElementById('theme-toggle') || { addEventListener: () => {} };
         const body = document.body;
         const savedTheme = localStorage.getItem('theme');
         if (savedTheme === 'dark') {
