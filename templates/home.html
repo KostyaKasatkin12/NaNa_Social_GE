@@ -33,13 +33,16 @@
                         <i class="fas fa-users text-blue-500 dark:text-blue-400"></i> Your Friends
                     </h2>
                     {% if friends %}
-                        <ul class="space-y-3">
+                        <ul class="space-y-3 friend-list">
                             {% for friend in friends %}
                                 <li class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
                                     <div class="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
                                         <i class="fas fa-user text-blue-500 dark:text-blue-400"></i>
                                     </div>
-                                    <a href="{{ url_for('create_chat', friend_id=friend[1]) }}" class="text-blue-500 dark:text-blue-400 hover:underline font-medium">{{ friend[0] }}</a>
+                                    <div class="flex items-center gap-3">
+                                        <a href="{{ url_for('profile', user_id=friend[1]) }}" class="text-blue-500 dark:text-blue-400 hover:underline font-medium">{{ friend[0] }}</a>
+                                        <a href="{{ url_for('create_chat', friend_id=friend[1]) }}" class="text-blue-500 dark:text-blue-400 hover:underline font-medium">Chat</a>
+                                    </div>
                                 </li>
                             {% endfor %}
                         </ul>
@@ -52,19 +55,23 @@
                         <i class="fas fa-user-plus text-blue-500 dark:text-blue-400"></i> Friend Requests
                     </h2>
                     <ul class="space-y-3 friend-requests">
-                        {% for request in friend_requests %}
-                            <li class="flex justify-between items-center p-3 border-b border-gray-200 dark:border-gray-700" data-sender-id="{{ request[0] }}">
-                                <span class="font-medium text-gray-700 dark:text-gray-300">{{ request[1] }}</span>
-                                <div class="flex gap-2">
-                                    <form action="{{ url_for('accept_friend', friend_id=request[0]) }}" method="POST" class="inline">
-                                        <button type="submit" class="px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 hover:scale-105 transition min-h-12">Accept</button>
-                                    </form>
-                                    <form action="{{ url_for('reject_friend', friend_id=request[0]) }}" method="POST" class="inline">
-                                        <button type="submit" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 hover:scale-105 transition min-h-12">Reject</button>
-                                    </form>
-                                </div>
-                            </li>
-                        {% endfor %}
+                        {% if friend_requests %}
+                            {% for request in friend_requests %}
+                                <li class="flex justify-between items-center p-3 border-b border-gray-200 dark:border-gray-700" data-sender-id="{{ request[0] }}">
+                                    <span class="font-medium text-gray-700 dark:text-gray-300">{{ request[1] }}</span>
+                                    <div class="flex gap-2">
+                                        <form action="{{ url_for('accept_friend', friend_id=request[0]) }}" method="POST" class="inline">
+                                            <button type="submit" class="px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 hover:scale-105 transition min-h-12">Accept</button>
+                                        </form>
+                                        <form action="{{ url_for('reject_friend', friend_id=request[0]) }}" method="POST" class="inline">
+                                            <button type="submit" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 hover:scale-105 transition min-h-12">Reject</button>
+                                        </form>
+                                    </div>
+                                </li>
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-gray-500 dark:text-gray-400 italic">No friend requests.</p>
+                        {% endif %}
                     </ul>
                 </div>
             </div>
@@ -195,14 +202,18 @@
                         <i class="fas fa-comments text-blue-500 dark:text-blue-400"></i> Chats
                     </h2>
                     <ul id="chats-list" class="space-y-3">
-                        {% for chat in chats %}
-                            <li class="flex justify-between items-center p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition" data-chat-id="{{ chat[0] }}">
-                                <a href="{{ url_for('chat', chat_id=chat[0]) }}" class="text-blue-500 dark:text-blue-400 hover:underline font-medium">{{ chat[1] }}</a>
-                                {% if chat[2] > 0 %}
-                                    <span class="bg-blue-500 dark:bg-blue-600 text-white text-xs px-2 py-1 rounded-full">{{ chat[2] }}</span>
-                                {% endif %}
-                            </li>
-                        {% endfor %}
+                        {% if chats %}
+                            {% for chat in chats %}
+                                <li class="flex justify-between items-center p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition" data-chat-id="{{ chat[0] }}">
+                                    <a href="{{ url_for('chat', chat_id=chat[0]) }}" class="text-blue-500 dark:text-blue-400 hover:underline font-medium">{{ chat[1] }}</a>
+                                    {% if chat[2] > 0 %}
+                                        <span class="bg-blue-500 dark:bg-blue-600 text-white text-xs px-2 py-1 rounded-full">{{ chat[2] }}</span>
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-gray-500 dark:text-gray-400 italic">No chats yet.</p>
+                        {% endif %}
                     </ul>
                 </div>
                 <div class="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-md hover:shadow-lg transition flex-1">
@@ -292,6 +303,67 @@
                         newSpan.textContent = unreadCount;
                         chatItem.appendChild(newSpan);
                     }
+                }
+            }
+        });
+
+        // Обновление списка чатов при принятии дружбы
+        socket.on('friend_request_accepted', function(data) {
+            console.log('Friend request accepted:', data);
+            const friendRequestsList = document.querySelector('.friend-requests');
+            const requestItems = friendRequestsList.getElementsByTagName('li');
+            for (let item of requestItems) {
+                if (item.getAttribute('data-sender-id') == data.friend_id) {
+                    item.remove();
+                    break;
+                }
+            }
+            const friendsList = document.querySelector('.friend-list') || document.createElement('ul');
+            if (!friendsList.className) {
+                friendsList.className = 'friend-list space-y-3';
+                const friendsSection = document.querySelector('.friends-section') || document.querySelector('.bg-white.dark\\:bg-gray-800').firstElementChild;
+                friendsSection.appendChild(friendsList);
+                document.querySelector('.friends-section p')?.remove();
+            }
+            const friendLi = document.createElement('li');
+            friendLi.className = 'flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition';
+            friendLi.innerHTML = `
+                <div class="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                    <i class="fas fa-user text-blue-500 dark:text-blue-400"></i>
+                </div>
+                <div class="flex items-center gap-3">
+                    <a href="/profile/${data.friend_id}" class="text-blue-500 dark:text-blue-400 hover:underline font-medium">${data.friend_username}</a>
+                    <a href="/create_chat/${data.friend_id}" class="text-blue-500 dark:text-blue-400 hover:underline font-medium">Chat</a>
+                </div>`;
+            friendsList.insertBefore(friendLi, friendsList.firstChild);
+
+            // Добавление нового чата
+            const chatsList = document.getElementById('chats-list');
+            const existingChat = chatsList.querySelector(`[data-chat-id]`);
+            if (!existingChat || !chatsList.querySelector(`a[href="/chat/${data.chat_id}"]`)) {
+                const chatLi = document.createElement('li');
+                chatLi.className = 'flex justify-between items-center p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition';
+                chatLi.setAttribute('data-chat-id', data.chat_id || data.friend_id);
+                chatLi.innerHTML = `
+                    <a href="/chat/${data.chat_id || data.friend_id}" class="text-blue-500 dark:text-blue-400 hover:underline font-medium">${data.friend_username}</a>`;
+                chatsList.insertBefore(chatLi, chatsList.firstChild);
+                if (chatsList.querySelector('p')) {
+                    chatsList.querySelector('p').remove();
+                } else {
+                    console.log('No placeholder paragraph found in chats-list');
+                }
+            }
+        });
+
+        // Обработка отклонения запроса на дружбу
+        socket.on('friend_request_rejected', function(data) {
+            console.log('Friend request rejected:', data);
+            const friendRequestsList = document.querySelector('.friend-requests');
+            const requestItems = friendRequestsList.getElementsByTagName('li');
+            for (let item of requestItems) {
+                if (item.getAttribute('data-sender-id') == data.friend_id) {
+                    item.remove();
+                    break;
                 }
             }
         });
@@ -456,45 +528,8 @@
                 </div>
             `;
             friendRequestsList.insertBefore(li, friendRequestsList.firstChild);
-        });
-
-        // Обработка принятия запроса на дружбу
-        socket.on('friend_request_accepted', function(data) {
-            console.log('Friend request accepted:', data);
-            const friendRequestsList = document.querySelector('.friend-requests');
-            const requestItems = friendRequestsList.getElementsByTagName('li');
-            for (let item of requestItems) {
-                if (item.getAttribute('data-sender-id') == data.friend_id) {
-                    item.remove();
-                    break;
-                }
-            }
-            const friendsList = document.querySelector('.friend-list') || document.createElement('ul');
-            if (!friendsList.className) {
-                friendsList.className = 'friend-list space-y-3';
-                document.querySelector('.friends-section').appendChild(friendsList);
-                document.querySelector('.friends-section p')?.remove();
-            }
-            const friendLi = document.createElement('li');
-            friendLi.className = 'flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition';
-            friendLi.innerHTML = `
-                <div class="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-                    <i class="fas fa-user text-blue-500 dark:text-blue-400"></i>
-                </div>
-                <a href="/create_chat/${data.friend_id}" class="text-blue-500 dark:text-blue-400 hover:underline font-medium">${data.friend_username}</a>`;
-            friendsList.insertBefore(friendLi, friendsList.firstChild);
-        });
-
-        // Обработка отклонения запроса на дружбу
-        socket.on('friend_request_rejected', function(data) {
-            console.log('Friend request rejected:', data);
-            const friendRequestsList = document.querySelector('.friend-requests');
-            const requestItems = friendRequestsList.getElementsByTagName('li');
-            for (let item of requestItems) {
-                if (item.getAttribute('data-sender-id') == data.friend_id) {
-                    item.remove();
-                    break;
-                }
+            if (friendRequestsList.querySelector('p')) {
+                friendRequestsList.querySelector('p').remove();
             }
         });
 
