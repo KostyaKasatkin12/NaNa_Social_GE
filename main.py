@@ -760,8 +760,12 @@ def search_user():
     return render_template('search_results.html', users=users)
 
 
+import os
+
 if __name__ == '__main__':
     init_db()
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
+    # Получение порта из переменной окружения или использование 5000 по умолчанию
+    port = int(os.environ.get('PORT', 5000))
     socketio.run(app, host="0.0.0.0", port=port, debug=True, allow_unsafe_werkzeug=True)
