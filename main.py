@@ -13,6 +13,7 @@ UPLOAD_FOLDER = 'static/avatars'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+
 def init_db():
     conn = sqlite3.connect('nana.db')
     cursor = conn.cursor()
@@ -101,17 +102,21 @@ def init_db():
     conn.commit()
     conn.close()
 
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 @socketio.on('connect')
 def handle_connect():
     print('Клиент подключился')
 
+
 @socketio.on('join_room')
 def on_join(room):
     join_room(str(room))
     print(f'Клиент присоединился к комнате: {room}')
+
 
 def send_notifications(user_id):
     conn = sqlite3.connect('nana.db')
@@ -132,8 +137,10 @@ def send_notifications(user_id):
              AND chat_messages.is_read = 0) > 0
     """, (user_id, user_id, user_id, user_id, user_id))
     unread_notifications = cursor.fetchall()
-    notifications = [(f"{username} sent you {unread_count} message(s)", None) for username, unread_count in unread_notifications]
-    cursor.execute("SELECT content, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC", (user_id,))
+    notifications = [(f"{username} sent you {unread_count} message(s)", None) for username, unread_count in
+                     unread_notifications]
+    cursor.execute("SELECT content, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC",
+                   (user_id,))
     notifications.extend(cursor.fetchall())
     total_unread = len(notifications)
     conn.close()
@@ -143,6 +150,7 @@ def send_notifications(user_id):
         'notifications': notifications,
         'total_unread': total_unread
     }, room=str(user_id))
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -162,6 +170,7 @@ def login():
             flash('Invalid username or password', 'error')
             return redirect(url_for('register'))
     return render_template('login.html')
+
 
 @app.route('/')
 def home():
@@ -232,15 +241,18 @@ def home():
              AND chat_messages.is_read = 0) > 0
     """, (user_id, user_id, user_id, user_id, user_id))
     unread_notifications = cursor.fetchall()
-    notifications = [(f"{username} sent you {unread_count} message(s)", None) for username, unread_count in unread_notifications]
-    cursor.execute("SELECT content, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC", (user_id,))
+    notifications = [(f"{username} sent you {unread_count} message(s)", None) for username, unread_count in
+                     unread_notifications]
+    cursor.execute("SELECT content, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC",
+                   (user_id,))
     notifications.extend(cursor.fetchall())
     conn.close()
     if user:
         send_notifications(user_id)
         return render_template('home.html', username=user[0], posts=posts, friends=friends,
-                             friend_requests=friend_requests, notifications=notifications, chats=chats)
+                               friend_requests=friend_requests, notifications=notifications, chats=chats)
     return redirect(url_for('login'))
+
 
 @app.route('/like_post/<int:post_id>', methods=['POST'])
 def like_post(post_id):
@@ -257,17 +269,18 @@ def like_post(post_id):
             cursor.execute("DELETE FROM post_reactions WHERE post_id = ? AND user_id = ?", (post_id, user_id))
         else:
             cursor.execute("UPDATE post_reactions SET reaction = 'like' WHERE post_id = ? AND user_id = ?",
-                          (post_id, user_id))
+                           (post_id, user_id))
     else:
         cursor.execute("INSERT INTO post_reactions (post_id, user_id, reaction) VALUES (?, ?, 'like')",
-                      (post_id, user_id))
-        cursor.execute("SELECT user_id, username FROM posts JOIN users ON posts.user_id = users.id WHERE posts.id = ?", (post_id,))
+                       (post_id, user_id))
+        cursor.execute("SELECT user_id, username FROM posts JOIN users ON posts.user_id = users.id WHERE posts.id = ?",
+                       (post_id,))
         post_owner = cursor.fetchone()
         if post_owner and post_owner[0] != user_id:
             cursor.execute("SELECT username FROM users WHERE id = ?", (user_id,))
             liker_username = cursor.fetchone()[0]
             cursor.execute("INSERT INTO notifications (user_id, content) VALUES (?, ?)",
-                          (post_owner[0], f"{liker_username} liked your post"))
+                           (post_owner[0], f"{liker_username} liked your post"))
             conn.commit()
             send_notifications(post_owner[0])
 
@@ -288,6 +301,7 @@ def like_post(post_id):
         'user_reaction': user_reaction
     })
     return redirect(request.referrer or url_for('home'))
+
 
 @app.route('/dislike_post/<int:post_id>', methods=['POST'])
 def dislike_post(post_id):
@@ -304,17 +318,18 @@ def dislike_post(post_id):
             cursor.execute("DELETE FROM post_reactions WHERE post_id = ? AND user_id = ?", (post_id, user_id))
         else:
             cursor.execute("UPDATE post_reactions SET reaction = 'dislike' WHERE post_id = ? AND user_id = ?",
-                          (post_id, user_id))
+                           (post_id, user_id))
     else:
         cursor.execute("INSERT INTO post_reactions (post_id, user_id, reaction) VALUES (?, ?, 'dislike')",
-                      (post_id, user_id))
-        cursor.execute("SELECT user_id, username FROM posts JOIN users ON posts.user_id = users.id WHERE posts.id = ?", (post_id,))
+                       (post_id, user_id))
+        cursor.execute("SELECT user_id, username FROM posts JOIN users ON posts.user_id = users.id WHERE posts.id = ?",
+                       (post_id,))
         post_owner = cursor.fetchone()
         if post_owner and post_owner[0] != user_id:
             cursor.execute("SELECT username FROM users WHERE id = ?", (user_id,))
             disliker_username = cursor.fetchone()[0]
             cursor.execute("INSERT INTO notifications (user_id, content) VALUES (?, ?)",
-                          (post_owner[0], f"{disliker_username} disliked your post"))
+                           (post_owner[0], f"{disliker_username} disliked your post"))
             conn.commit()
             send_notifications(post_owner[0])
 
@@ -335,6 +350,7 @@ def dislike_post(post_id):
         'user_reaction': user_reaction
     })
     return redirect(request.referrer or url_for('home'))
+
 
 @app.route('/get_comments/<int:post_id>', methods=['GET'])
 def get_comments(post_id):
@@ -354,6 +370,7 @@ def get_comments(post_id):
         'comments': [{'content': comment[0], 'created_at': comment[1], 'username': comment[2]} for comment in comments]
     })
 
+
 @app.route('/add_comment', methods=['POST'])
 def add_comment():
     if 'user_id' not in session:
@@ -362,17 +379,17 @@ def add_comment():
     data = request.get_json()
     post_id = data['post_id']
     content = data['content']
-    
+
     conn = sqlite3.connect('nana.db')
     cursor = conn.cursor()
     cursor.execute("INSERT INTO post_comments (post_id, user_id, content) VALUES (?, ?, ?)",
-                  (post_id, user_id, content))
+                   (post_id, user_id, content))
     conn.commit()
     cursor.execute("SELECT created_at FROM post_comments WHERE id = LAST_INSERT_ROWID()")
     created_at = cursor.fetchone()[0]
     cursor.execute("SELECT username FROM users WHERE id = ?", (user_id,))
     username = cursor.fetchone()[0]
-    
+
     # Уведомление владельца поста
     cursor.execute("SELECT user_id, content FROM posts WHERE id = ?", (post_id,))
     post_data = cursor.fetchone()
@@ -381,16 +398,17 @@ def add_comment():
         # Ограничим длину содержимого поста до 20 символов
         short_content = post_content[:20] + ('...' if len(post_content) > 20 else '')
         cursor.execute("INSERT INTO notifications (user_id, content) VALUES (?, ?)",
-                      (post_owner_id, f"{username} commented on your post: \"{short_content}\""))
+                       (post_owner_id, f"{username} commented on your post: \"{short_content}\""))
         conn.commit()
         send_notifications(post_owner_id)
-    
+
     conn.close()
     return jsonify({
         'status': 'success',
         'username': username,
         'created_at': created_at
     })
+
 
 @app.route('/clear_notifications', methods=['POST'])
 def clear_notifications():
@@ -404,6 +422,7 @@ def clear_notifications():
     conn.close()
     send_notifications(user_id)
     return jsonify({'status': 'success', 'message': 'Notifications cleared'}), 200
+
 
 @app.route('/create_post', methods=['POST'])
 def create_post():
@@ -421,7 +440,7 @@ def create_post():
     conn = sqlite3.connect('nana.db')
     cursor = conn.cursor()
     cursor.execute("INSERT INTO posts (user_id, content, image) VALUES (?, ?, ?)",
-                  (user_id, content, image_filename))
+                   (user_id, content, image_filename))
     conn.commit()
     cursor.execute("SELECT username FROM users WHERE id = ?", (user_id,))
     username = cursor.fetchone()[0]
@@ -440,12 +459,14 @@ def create_post():
     })
     return redirect(url_for('home'))
 
+
 # Список городов России
 RUSSIAN_CITIES = [
     'Москва', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург', 'Казань',
     'Нижний Новгород', 'Челябинск', 'Самара', 'Омск', 'Ростов-на-Дону',
     'Уфа', 'Красноярск', 'Воронеж', 'Пермь', 'Волгоград'
 ]
+
 
 @app.route('/profile', methods=['GET', 'POST'])
 def profile():
@@ -460,7 +481,7 @@ def profile():
             relationship_status = request.form.get('relationship_status')
             city = request.form.get('city') if request.form.get('city') in RUSSIAN_CITIES else None
             cursor.execute("UPDATE users SET description = ?, relationship_status = ?, city = ? WHERE id = ?",
-                         (description, relationship_status, city, user_id))
+                           (description, relationship_status, city, user_id))
             conn.commit()
         elif 'post_content' in request.form:
             post_content = request.form['post_content']
@@ -472,7 +493,7 @@ def profile():
                 image.save(image_path)
                 image_filename = filename
             cursor.execute("INSERT INTO posts (user_id, content, image) VALUES (?, ?, ?)",
-                         (user_id, post_content, image_filename))
+                           (user_id, post_content, image_filename))
             conn.commit()
             cursor.execute("SELECT username FROM users WHERE id = ?", (user_id,))
             username = cursor.fetchone()[0]
@@ -491,16 +512,21 @@ def profile():
                 avatar_path = os.path.join(app.config['UPLOAD_FOLDER'], avatar_filename)
                 avatar.save(avatar_path)
                 cursor.execute("UPDATE users SET avatar = ? WHERE id = ?",
-                             (avatar_filename, user_id))
+                               (avatar_filename, user_id))
                 conn.commit()
-    cursor.execute("SELECT username, description, relationship_status, avatar, city FROM users WHERE id = ?", (user_id,))
+    cursor.execute("SELECT username, description, relationship_status, avatar, city FROM users WHERE id = ?",
+                   (user_id,))
     user = cursor.fetchone()
-    cursor.execute("SELECT users.username FROM friends JOIN users ON friends.friend_id = users.id WHERE friends.user_id = ? AND friends.status = 'accepted'", (user_id,))
+    cursor.execute(
+        "SELECT users.username FROM friends JOIN users ON friends.friend_id = users.id WHERE friends.user_id = ? AND friends.status = 'accepted'",
+        (user_id,))
     friends = cursor.fetchall()
-    cursor.execute("SELECT content, created_at, image FROM posts WHERE user_id = ? ORDER BY created_at DESC", (user_id,))
+    cursor.execute("SELECT content, created_at, image FROM posts WHERE user_id = ? ORDER BY created_at DESC",
+                   (user_id,))
     posts = cursor.fetchall()
     conn.close()
     return render_template('profile.html', user=user, friends=friends, posts=posts, cities=RUSSIAN_CITIES)
+
 
 @app.route('/create_chat/<int:friend_id>')
 def create_chat(friend_id):
@@ -508,21 +534,35 @@ def create_chat(friend_id):
         return redirect(url_for('login'))
     user_id = session['user_id']
     if user_id == friend_id:
-        flash('You cannot chat with yourself!', 'error')
+        flash('Вы не можете начать чат с самим собой!', 'error')
         return redirect(url_for('home'))
     conn = sqlite3.connect('nana.db')
     cursor = conn.cursor()
+
+    # Проверяем, являются ли пользователи друзьями
+    cursor.execute(
+        "SELECT * FROM friends WHERE (user_id = ? AND friend_id = ? AND status = 'accepted') OR (user_id = ? AND friend_id = ? AND status = 'accepted')",
+        (user_id, friend_id, friend_id, user_id))
+    friendship = cursor.fetchone()
+    if not friendship:
+        flash('Вы можете начать чат только с друзьями!', 'error')
+        return redirect(url_for('home'))
+
+    # Проверяем, существует ли чат
     cursor.execute("SELECT id FROM chats WHERE (user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?)",
-                  (user_id, friend_id, friend_id, user_id))
+                   (user_id, friend_id, friend_id, user_id))
     chat = cursor.fetchone()
     if not chat:
         cursor.execute("INSERT INTO chats (user1_id, user2_id) VALUES (?, ?)", (user_id, friend_id))
         conn.commit()
         cursor.execute("SELECT id FROM chats WHERE (user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?)",
-                      (user_id, friend_id, friend_id, user_id))
+                       (user_id, friend_id, friend_id, user_id))
         chat = cursor.fetchone()
+
     conn.close()
+    print(f"Чат создан или найден: chat_id={chat[0]}, user_id={user_id}, friend_id={friend_id}")
     return redirect(url_for('chat', chat_id=chat[0]))
+
 
 @app.route('/chat/<int:chat_id>')
 def chat(chat_id):
@@ -567,6 +607,7 @@ def chat(chat_id):
     send_notifications(user_id)
     return render_template('chat.html', chat_id=chat_id, friend=friend[0], messages=messages, user_id=user_id)
 
+
 @app.route('/send_message/<int:chat_id>', methods=['POST'])
 def send_message(chat_id):
     if 'user_id' not in session:
@@ -576,7 +617,7 @@ def send_message(chat_id):
     conn = sqlite3.connect('nana.db')
     cursor = conn.cursor()
     cursor.execute("INSERT INTO chat_messages (chat_id, sender_id, content) VALUES (?, ?, ?)",
-                  (chat_id, user_id, message))
+                   (chat_id, user_id, message))
     conn.commit()
     cursor.execute("SELECT created_at FROM chat_messages WHERE id = LAST_INSERT_ROWID()")
     created_at = cursor.fetchone()[0]
@@ -597,6 +638,7 @@ def send_message(chat_id):
     send_notifications(receiver_id)
     return {'status': 'success', 'message': 'Message sent'}, 200
 
+
 @app.route('/add_friend/<int:friend_id>')
 def add_friend(friend_id):
     if 'user_id' not in session:
@@ -608,15 +650,15 @@ def add_friend(friend_id):
     existing_friend = cursor.fetchone()
     if not existing_friend:
         cursor.execute("INSERT INTO friends (user_id, friend_id, status) VALUES (?, ?, 'pending')",
-                      (user_id, friend_id))
+                       (user_id, friend_id))
         conn.commit()
         cursor.execute("SELECT username FROM users WHERE id = ?", (user_id,))
         username = cursor.fetchone()[0]
         cursor.execute("SELECT created_at FROM friends WHERE user_id = ? AND friend_id = ?",
-                      (user_id, friend_id))
+                       (user_id, friend_id))
         created_at = cursor.fetchone()[0]
         cursor.execute("INSERT INTO notifications (user_id, content, created_at) VALUES (?, ?, ?)",
-                      (friend_id, f"{username} sent you a friend request", created_at))
+                       (friend_id, f"{username} sent you a friend request", created_at))
         conn.commit()
         socketio.emit('new_friend_request', {
             'sender_id': user_id,
@@ -627,6 +669,7 @@ def add_friend(friend_id):
     conn.close()
     return redirect(url_for('home'))
 
+
 @app.route('/accept_friend/<int:friend_id>', methods=['POST'])
 def accept_friend(friend_id):
     if 'user_id' not in session:
@@ -634,25 +677,49 @@ def accept_friend(friend_id):
     user_id = session['user_id']
     conn = sqlite3.connect('nana.db')
     cursor = conn.cursor()
+
+    # Проверяем, существует ли запрос на дружбу
     cursor.execute("SELECT * FROM friends WHERE user_id = ? AND friend_id = ? AND status = 'pending'",
-                  (friend_id, user_id))
+                   (friend_id, user_id))
     friend_request = cursor.fetchone()
+
     if friend_request:
+        # Обновляем статус запроса на 'accepted'
         cursor.execute("UPDATE friends SET status = 'accepted' WHERE user_id = ? AND friend_id = ?",
-                      (friend_id, user_id))
-        cursor.execute("INSERT OR REPLACE INTO friends (user_id, friend_id, status) VALUES (?, ?, 'accepted')",
-                      (user_id, friend_id))
+                       (friend_id, user_id))
+
+        # Создаем обратную запись дружбы, если она еще не существует
+        cursor.execute("SELECT * FROM friends WHERE user_id = ? AND friend_id = ?",
+                       (user_id, friend_id))
+        reverse_friendship = cursor.fetchone()
+        if not reverse_friendship:
+            cursor.execute("INSERT INTO friends (user_id, friend_id, status, created_at) VALUES (?, ?, 'accepted', ?)",
+                           (user_id, friend_id, friend_request[3]))  # Используем created_at из исходного запроса
+
         conn.commit()
+
+        # Получаем имена пользователей для уведомлений
         cursor.execute("SELECT username FROM users WHERE id = ?", (friend_id,))
         friend_username = cursor.fetchone()[0]
         cursor.execute("SELECT username FROM users WHERE id = ?", (user_id,))
         accepter_username = cursor.fetchone()[0]
-        cursor.execute("SELECT created_at FROM friends WHERE user_id = ? AND friend_id = ?",
-                      (user_id, friend_id))
-        created_at = cursor.fetchone()[0]
+
+        # Создаем уведомления
         cursor.execute("INSERT INTO notifications (user_id, content, created_at) VALUES (?, ?, ?)",
-                      (friend_id, f"{accepter_username} accepted your friend request", created_at))
+                       (friend_id, f"{accepter_username} принял(а) ваш запрос на дружбу", friend_request[3]))
+        cursor.execute("INSERT INTO notifications (user_id, content, created_at) VALUES (?, ?, ?)",
+                       (user_id, f"Вы теперь друзья с {friend_username}", friend_request[3]))
         conn.commit()
+
+        # Создаем чат, если он еще не существует
+        cursor.execute("SELECT id FROM chats WHERE (user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?)",
+                       (user_id, friend_id, friend_id, user_id))
+        chat = cursor.fetchone()
+        if not chat:
+            cursor.execute("INSERT INTO chats (user1_id, user2_id) VALUES (?, ?)", (user_id, friend_id))
+            conn.commit()
+
+        # Отправляем уведомления через SocketIO
         socketio.emit('friend_request_accepted', {
             'user_id': user_id,
             'friend_id': friend_id,
@@ -665,8 +732,10 @@ def accept_friend(friend_id):
         }, room=str(friend_id))
         send_notifications(friend_id)
         send_notifications(user_id)
+
     conn.close()
     return redirect(url_for('home'))
+
 
 @app.route('/reject_friend/<int:friend_id>', methods=['POST'])
 def reject_friend(friend_id):
@@ -684,10 +753,12 @@ def reject_friend(friend_id):
     conn.close()
     return redirect(url_for('home'))
 
+
 @app.route('/logout')
 def logout():
     session.pop('user_id', None)
     return redirect(url_for('login'))
+
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -707,11 +778,12 @@ def register():
             conn.close()
             return 'Username already exists, please choose another one.'
         cursor.execute("INSERT INTO users (username, password, description, city) VALUES (?, ?, ?, ?)",
-                      (username, password, description, city))
+                       (username, password, description, city))
         conn.commit()
         conn.close()
         return redirect(url_for('login'))
     return render_template('register.html', cities=RUSSIAN_CITIES)
+
 
 @app.route('/search_user', methods=['POST'])
 def search_user():
@@ -721,18 +793,20 @@ def search_user():
     conn = sqlite3.connect('nana.db')
     cursor = conn.cursor()
     cursor.execute("SELECT id, username, relationship_status, avatar FROM users WHERE username LIKE ? AND id != ?",
-                  (f'%{username}%', session['user_id']))
+                   (f'%{username}%', session['user_id']))
     users = cursor.fetchall()
     conn.close()
     # Отладка: вывести список файлов в папке templates
     templates_dir = os.path.join(os.path.dirname(__file__), 'templates')
     print("Templates directory:", templates_dir)
     print("Files in templates:", os.listdir(templates_dir))
-    return render_template('search_result.html', users=users)
+    return render_template('search_results.html', users=users)
+
 
 @app.errorhandler(jinja2.exceptions.TemplateNotFound)
 def template_not_found(e):
     return jsonify({'error': f'Template not found: {str(e)}'}), 500
+
 
 if __name__ == '__main__':
     init_db()
