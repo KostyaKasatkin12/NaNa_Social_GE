@@ -1,105 +1,101 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ user[1] }}'s Profile</title>
+    <title>Результаты поиска</title>
     <style>
-        /* Global Styles */
         body {
             font-family: Arial, sans-serif;
-            background-color: #f0f2f5;
             margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            flex-direction: column;
-            height: 100vh;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
         }
         h1 {
-            color: #4267b2;
             text-align: center;
-            margin-top: 30px;
+            color: #333;
         }
-        .profile-container {
+        .user {
+            display: flex;
+            align-items: center;
             background-color: white;
-            padding: 20px;
-            width: 80%;
-            max-width: 600px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            margin-top: 30px;
-        }
-        p {
-            font-size: 16px;
-            color: #333;
-        }
-        h3 {
-            color: #333;
-        }
-        .post-list {
-            list-style: none;
-            padding: 0;
-        }
-        .post-list li {
             padding: 10px;
-            border-bottom: 1px solid #ddd;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
-        .btn {
-            display: inline-block;
-            padding: 10px 20px;
-            background-color: #3b5998;
-            color: white;
-            border: none;
-            border-radius: 4px;
+        .user img {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            margin-right: 15px;
+            object-fit: cover;
+        }
+        .user-info {
+            flex-grow: 1;
+        }
+        .user-info a {
             text-decoration: none;
-            text-align: center;
-            margin-top: 20px;
+            color: #007bff;
+            font-weight: bold;
         }
-        .btn:hover {
-            background-color: #365899;
-        }
-        a {
-            color: #4267b2;
-            text-decoration: none;
-        }
-        a:hover {
+        .user-info a:hover {
             text-decoration: underline;
         }
-        footer {
+        .user-info p {
+            margin: 5px 0;
+            color: #555;
+        }
+        .add-friend-btn {
+            background-color: #28a745;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 3px;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .add-friend-btn:hover {
+            background-color: #218838;
+        }
+        .no-results {
+            text-align: center;
+            color: #777;
+        }
+        .back-link {
+            display: block;
             text-align: center;
             margin-top: 20px;
-            color: #777;
+            color: #007bff;
+            text-decoration: none;
+        }
+        .back-link:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
 <body>
-
-    <h1>{{ user[1] }}'s Profile</h1>
-
-    <div class="profile-container">
-        <p><strong>Description:</strong> {{ user[2] }}</p>
-
-        <h3>Posts:</h3>
-        {% if posts %}
-        <ul class="post-list">
-            {% for post in posts %}
-                <li>{{ post[0] }} ({{ post[1] }})</li>
+    <div class="container">
+        <h1>Результаты поиска</h1>
+        {% if users %}
+            {% for user in users %}
+                <div class="user">
+                    <img src="{{ url_for('static', filename='avatars/' + user[3]) if user[3] else 'https://via.placeholder.com/50' }}" alt="Аватар">
+                    <div class="user-info">
+                        <a href="{{ url_for('profile', user_id=user[0]) }}">{{ user[1] }}</a>
+                        <p>Статус отношений: {{ user[2] | default('не указан') }}</p>
+                    </div>
+                    <a href="{{ url_for('add_friend', friend_id=user[0]) }}" class="add-friend-btn">Добавить в друзья</a>
+                </div>
             {% endfor %}
-        </ul>
         {% else %}
-            <p>No posts yet.</p>
+            <p class="no-results">Пользователи не найдены.</p>
         {% endif %}
-
-        <form method="POST" action="{{ url_for('send_friend_request', user_id=user[0]) }}">
-            <button type="submit" class="btn">Add Friend</button>
-        </form>
-
-        <footer>
-            <a href="{{ url_for('search_user') }}">Back to search</a>
-        </footer>
+        <a href="{{ url_for('home') }}" class="back-link">Вернуться на главную</a>
     </div>
-
 </body>
 </html>
