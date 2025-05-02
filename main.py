@@ -785,8 +785,8 @@ def register():
     return render_template('register.html', cities=RUSSIAN_CITIES)
 
 
-@app.route('/search_user', methods=['POST'])
-def search_user():
+@app.route('/_user', methods=['POST'])
+def _user():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     username = request.form['username']
@@ -800,7 +800,7 @@ def search_user():
     templates_dir = os.path.join(os.path.dirname(__file__), 'templates')
     print("Templates directory:", templates_dir)
     print("Files in templates:", os.listdir(templates_dir))
-    return render_template('search_results.html', users=users)
+    return render_template('search_result.html', users=users)
 
 
 @app.errorhandler(jinja2.exceptions.TemplateNotFound)
